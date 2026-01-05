@@ -69,6 +69,20 @@ npm run dev
 
 ---
 
+## 🚀 Advanced Workflow: Auto-Sync
+
+To make your life easier, I've included a `sync.sh` script. This will automatically **bundle** (build) the project, check for errors, and **push** to GitHub in one step.
+
+```bash
+# Run with a default timestamp message
+./sync.sh
+
+# Run with a custom commit message
+./sync.sh "implemented new sidebar icons"
+```
+
+---
+
 ## 🚢 GitHub Deployment Guidance
 
 ### Pushing to a New Repository
