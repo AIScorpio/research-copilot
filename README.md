@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Research Copilot: Enhanced AI Paper Management
 
-## Getting Started
+A powerful, full-stack research management platform designed for deep technical analysis of academic and industrial papers, with a focus on AI in Banking.
 
-First, run the development server:
+## ✨ Key Features
 
+### 🚀 Smart Collection
+- **Auto-Collect**: One-click collection of the latest papers on specific themes (e.g., AI in Banking).
+- **Multi-Source Pipeline**: Integrated search across ArXiv, Semantic Scholar, and more.
+- **Custom Filters**: Drill down by publication date, source, and research sector.
+
+### 🧠 AI-Powered Intelligence
+- **Real-time Technical Summaries**: On-demand deep-dive analysis using LLMs (Groq Llama 3.3).
+- **Auto-Tagging**: AI-suggested research topics and industrial categories with a one-click approval workflow.
+- **Context-Aware RAG Chat**: Chat with your entire paper library using Retrieval-Augmented Generation for cited, specific answers.
+
+### 📊 Advanced Dashboard
+- **MacOS-Style Interactive Charts**: "Magnetic" zoom effects on research volume and methodology distribution.
+- **Intelligence Panels**: Stable, high-readout info panels for quick data inspection.
+- **Collection History**: Interactive calendar popup showing daily research growth.
+
+### 🛠️ Repository Management
+- **Action Menu**: Hover over any paper card to quickly delete or edit metadata.
+- **Metadata Correction**: Directly edit publication dates to ensure library accuracy.
+- **Custom Tagging**: Manage your own taxonomy alongside AI-generated tags.
+
+---
+
+## 🛠️ Tech Stack
+- **Framework**: Next.js 15+ (App Router)
+- **Database**: Prisma with SQLite
+- **UI Architecture**: Tailwind CSS + Shadcn UI + Recharts
+- **AI/LLM**: Groq SDK (Llama 3.3)
+- **Search Integrations**: ArXiv, Semantic Scholar
+
+---
+
+## 🚀 Local Setup
+
+### 1. Requirements
+- Node.js 18+
+- A [Groq API Key](https://console.groq.com/) for AI features.
+
+### 2. Installation
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <your-repo-url>
+cd researcher
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Environment Configuration
+Create a `.env` file in the root directory:
+```env
+DATABASE_URL="file:./dev.db"
+LLM_PROVIDER="groq"
+GROQ_API_KEY="your_groq_key_here"
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Database Setup
+```bash
+npx prisma db push
+npx prisma generate
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 5. Start Application
+```bash
+npm run dev
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🚢 GitHub Deployment Guidance
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Pushing to a New Repository
+1. **Create a new empty repository** on your GitHub account.
+2. **Open your terminal** in this project folder.
+3. **Execute the following commands**:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Initialize git if not already done
+git init
 
-## Deploy on Vercel
+# Add all project files
+git add .
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Commit changes
+git commit -m "Initial release: Enhanced Research Copilot"
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Rename branch to main
+git branch -M main
+
+# Add your GitHub repository as the remote
+# REPLACE with your actual repo URL
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+
+# Push to GitHub
+git push -u origin main
+```
+
+> [!IMPORTANT]
+> **Do NOT push your `.env` file!** It contains sensitive API keys. The `.gitignore` is already configured to skip it.
