@@ -1,65 +1,104 @@
-import Image from "next/image";
+import { prisma } from "@/lib/db"
+import { StatsCards } from "@/components/dashboard/stats-cards"
+import { TopicChart } from "@/components/dashboard/topic-chart"
+import { MethodologyChart } from "@/components/dashboard/methodology-chart"
 
-export default function Home() {
+// Fetch data on the server
+async function getDashboardData() {
+  const total = await prisma.paper.count();
+
+  // 1. Calculate Today's Growth
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const todayCount = await prisma.paper.count({
+    where: { collectedAt: { gte: startOfToday } }
+  });
+
+  const previousTotal = total - todayCount;
+  const growthRate = previousTotal > 0 ? (todayCount / previousTotal) * 100 : 0;
+
+  // 2. Daily Stats for Calendar (past 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const dailyHistory = await prisma.paper.findMany({
+    where: { collectedAt: { gte: thirtyDaysAgo } },
+    select: { collectedAt: true }
+  });
+
+  // Group by date
+  const dailyStats: Record<string, number> = {};
+  dailyHistory.forEach(p => {
+    const dateStr = p.collectedAt.toISOString().split('T')[0];
+    dailyStats[dateStr] = (dailyStats[dateStr] || 0) + 1;
+  });
+
+  // Get all tags with paper counts
+  const allTags = await prisma.tag.findMany({
+    include: { _count: { select: { papers: true } } }
+  });
+
+  // Categorize by type
+  const industrialTags = allTags.filter(t => t.type === 'Industrial');
+  const academicTags = allTags.filter(t => t.type === 'Academic');
+  const customTags = allTags.filter(t => t.type === 'User Defined');
+
+  const industrialCount = industrialTags.reduce((acc: number, t: any) => acc + t._count.papers, 0);
+  const academicCount = academicTags.reduce((acc: number, t: any) => acc + t._count.papers, 0);
+
+  // Merge for chart - include all tags
+  const chartData = [
+    ...industrialTags.map((t: any) => ({ name: t.name, count: t._count.papers, type: 'Industrial' })),
+    ...academicTags.map((t: any) => ({ name: t.name, count: t._count.papers, type: 'Academic' })),
+    ...customTags.map((t: any) => ({ name: t.name, count: t._count.papers, type: 'Custom' }))
+  ].sort((a: any, b: any) => b.count - a.count).slice(0, 10); // Top 10
+
+  return {
+    total,
+    industrialCount,
+    academicCount,
+    chartData,
+    growthRate,
+    todayCount,
+    dailyStats
+  };
+}
+
+export default async function DashboardPage() {
+  const data = await getDashboardData();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Research Overview</h2>
+      </div>
+
+      <StatsCards
+        total={data.total}
+        industrialCount={data.industrialCount}
+        academicCount={data.academicCount}
+        growthRate={data.growthRate}
+        todayCount={data.todayCount}
+        dailyStats={data.dailyStats}
+      />
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-4">
+          <TopicChart data={data.chartData} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="col-span-3">
+          <MethodologyChart data={data.chartData.filter((d: any) => d.type === 'Academic')} />
         </div>
-      </main>
+      </div>
+
+      {/* Drill-down Hint */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-7 bg-muted/40 p-6 rounded-lg text-center">
+          <h3 className="text-lg font-semibold mb-2">Want to explore specific papers?</h3>
+          <p className="text-sm text-muted-foreground mb-4">You can drill down into specific sectors or topics in the Library.</p>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
