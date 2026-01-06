@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { searchOnline } from '@/lib/collector';
 import { processPaper } from '@/lib/processor';
 import { prisma } from '@/lib/db';
@@ -117,6 +118,9 @@ export async function POST(request: Request) {
                 message += `   Examples: ${duplicateTitles.slice(0, 3).join(', ')}`;
             }
         }
+
+        // Purge dashboard cache
+        revalidatePath('/');
 
         return NextResponse.json({
             success: true,

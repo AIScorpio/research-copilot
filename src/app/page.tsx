@@ -3,6 +3,10 @@ import { StatsCards } from "@/components/dashboard/stats-cards"
 import { TopicChart } from "@/components/dashboard/topic-chart"
 import { MethodologyChart } from "@/components/dashboard/methodology-chart"
 
+// Force dynamic rendering to ensure the dashboard always reflects real-time bank data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Fetch data on the server
 async function getDashboardData() {
   const total = await prisma.paper.count();

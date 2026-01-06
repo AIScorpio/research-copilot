@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { searchOnline } from '@/lib/collector';
 import { processPaper } from '@/lib/processor';
@@ -98,6 +99,9 @@ export async function POST(request: Request) {
                     newCount++;
                 }
             }
+
+            // Purge dashboard cache
+            revalidatePath('/');
 
             return NextResponse.json({
                 success: true,
