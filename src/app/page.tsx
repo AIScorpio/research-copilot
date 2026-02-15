@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { TopicChart } from "@/components/dashboard/topic-chart"
 import { MethodologyChart } from "@/components/dashboard/methodology-chart"
+import { FeatureCards } from "@/components/dashboard/feature-cards"
+import { Zap } from "lucide-react"
 
 // Force dynamic rendering to ensure the dashboard always reflects real-time bank data
 export const dynamic = 'force-dynamic';
@@ -83,24 +85,33 @@ export default async function DashboardPage() {
         industrialCount={data.industrialCount}
         academicCount={data.academicCount}
         growthRate={data.growthRate}
-        todayCount={data.todayCount}
         dailyStats={data.dailyStats}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4">
-          <TopicChart data={data.chartData} />
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Zap className="h-5 w-5 text-purple-600" />
+            New Features Available
+          </h3>
+          <FeatureCards />
         </div>
-        <div className="col-span-3">
-          <MethodologyChart data={data.chartData.filter((d: any) => d.type === 'Academic')} />
-        </div>
-      </div>
 
-      {/* Drill-down Hint */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-7 bg-muted/40 p-6 rounded-lg text-center">
-          <h3 className="text-lg font-semibold mb-2">Want to explore specific papers?</h3>
-          <p className="text-sm text-muted-foreground mb-4">You can drill down into specific sectors or topics in the Library.</p>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <div className="col-span-4">
+            <TopicChart data={data.chartData} />
+          </div>
+          <div className="col-span-3">
+            <MethodologyChart data={data.chartData.filter((d: any) => d.type === 'Academic')} />
+          </div>
+        </div>
+
+        {/* Drill-down Hint */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <div className="col-span-7 bg-muted/40 p-6 rounded-lg text-center">
+            <h3 className="text-lg font-semibold mb-2">Want to explore specific papers?</h3>
+            <p className="text-sm text-muted-foreground mb-4">You can drill down into specific sectors or topics in the Library.</p>
+          </div>
         </div>
       </div>
     </div>

@@ -6,14 +6,25 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, Sparkles, Check, X, Loader2 } from "lucide-react"
 
-export function CustomTags({ paperId, initialTags }: { paperId: string, initialTags: any[] }) {
-    const [tags, setTags] = useState(initialTags);
+interface Tag {
+    id?: string;
+    tagName?: string;
+    name?: string;
+    type?: string;
+}
+
+interface Suggestion {
+    name: string;
+}
+
+export function CustomTags({ paperId, initialTags }: { paperId: string, initialTags: Tag[] }) {
+    const [tags, setTags] = useState<Tag[]>(initialTags);
     const [newTag, setNewTag] = useState("");
     const [isAdding, setIsAdding] = useState(false);
 
     // Auto-Tag State
     const [isAutoTagging, setIsAutoTagging] = useState(false);
-    const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
     const handleAddTag = async (tagName: string) => {
         if (!tagName.trim()) return;

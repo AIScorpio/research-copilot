@@ -13,9 +13,26 @@ import { Loader2, AlertCircle, X, Terminal } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { PaperCard } from "@/components/papers/paper-card"
 
+interface Source {
+    id: string;
+    name: string;
+}
+
+interface PaperItem {
+    id: string;
+    title: string;
+    abstract: string;
+    source: string;
+    publicationDate: string;
+    url: string;
+    collectedAt?: string;
+    favoritedBy?: unknown[];
+    tags?: { id: string; name: string; type: string }[];
+}
+
 interface PipelineViewProps {
-    initialSources: any[];
-    recentPapers: any[];
+    initialSources: Source[];
+    recentPapers: PaperItem[];
 }
 
 export function PipelineView({ initialSources, recentPapers }: PipelineViewProps) {
@@ -23,9 +40,14 @@ export function PipelineView({ initialSources, recentPapers }: PipelineViewProps
     const [topic, setTopic] = useState("Deep learning")
     const [sources, setSources] = useState(initialSources)
     const [dateHorizon, setDateHorizon] = useState("month")
-    const [customFrom, setCustomFrom] = useState((new Date().getFullYear() - 3).toString()) // Default 3 years
-    const [customTo, setCustomTo] = useState(new Date().getFullYear().toString())
+    const [customFrom, setCustomFrom] = useState(() => {
+        const d = new Date()
+        d.setFullYear(d.getFullYear() - 3)
+        return d.toISOString().split('T')[0]
+    }) // Default 3 years ago
+    const [customTo, setCustomTo] = useState(() => new Date().toISOString().split('T')[0]) // Today
     const [useAgent, setUseAgent] = useState(true)
+    const [strictness, setStrictness] = useState<"relaxed" | "balanced" | "strict">("balanced")
     const [isRunning, setIsRunning] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
     const [error, setError] = useState<string | null>(null)
@@ -52,11 +74,15 @@ export function PipelineView({ initialSources, recentPapers }: PipelineViewProps
             const res = await fetch('/api/collection', {
                 method: 'POST',
                 body: JSON.stringify({
+                    mode: 'pipeline',
                     query: topic,
                     horizon: dateHorizon,
                     dateFrom: dateHorizon === 'custom' ? customFrom : undefined,
                     dateTo: dateHorizon === 'custom' ? customTo : undefined,
-                    useAgent
+                    useLLMOptimization: useAgent,
+                    useLLMFiltering: useAgent,
+                    queryStrictness: strictness,
+                    maxResults: 100
                 })
             });
             const data = await res.json();
@@ -66,14 +92,35 @@ export function PipelineView({ initialSources, recentPapers }: PipelineViewProps
                     addLog(`Agent: Optimization complete.`);
                 }
                 addLog(`Collection complete. Processing metadata...`);
-                // Provide detailed feedback
-                if (data.newCount === 0 && data.totalFound > 0) {
-                    addLog(`Success! Found ${data.totalFound} relevant papers (all already in library).`);
-                } else if (data.totalFound === 0) {
-                    addLog(`completed. No matching papers found for this criteria.`);
-                    addLog(`Tip: Try a broader topic or extend the Date Horizon.`);
+                
+                // Detailed pipeline logs
+                if (data.stats) {
+                    const { rawFound, afterSearchLimit, afterDuplicateFilter, afterLLMFilter, finalSaved } = data.stats;
+                    const duplicatesFiltered = afterSearchLimit - afterDuplicateFilter;
+                    const relevanceFiltered = afterDuplicateFilter - afterLLMFilter;
+                    
+                    addLog(`📊 Collection Summary:`);
+                    addLog(`  Found: ${rawFound} papers from sources`);
+                    if (afterSearchLimit < rawFound) {
+                        addLog(`  ↳ Limited to ${afterSearchLimit} papers (soft limit)`);
+                    }
+                    if (duplicatesFiltered > 0) {
+                        addLog(`  ↳ Filtered ${duplicatesFiltered} duplicates`);
+                    }
+                    if (relevanceFiltered > 0) {
+                        addLog(`  ↳ Filtered ${relevanceFiltered} by relevance (< 5.0)`);
+                    }
+                    addLog(`  ✅ Saved: ${finalSaved} new papers`);
                 } else {
-                    addLog(`Success! Archived ${data.newCount} new papers (from ${data.totalFound} analyzed).`);
+                    // Fallback for old API response format
+                    if (data.newCount === 0 && data.totalFound > 0) {
+                        addLog(`Found ${data.totalFound} relevant papers (all already in library).`);
+                    } else if (data.totalFound === 0) {
+                        addLog(`No matching papers found.`);
+                        addLog(`Tip: Try a broader topic or extend the Date Horizon.`);
+                    } else {
+                        addLog(`Archived ${data.newCount} new papers (from ${data.totalFound} analyzed).`);
+                    }
                 }
 
                 router.refresh();
@@ -81,11 +128,11 @@ export function PipelineView({ initialSources, recentPapers }: PipelineViewProps
                 throw new Error(data.error || "Unknown error");
             }
 
-        } catch (e: any) {
-            console.error(e);
-            const err = "CRITICAL ERROR: Connection interrupted (503). Reference unavailable.";
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+            const err = `CRITICAL ERROR: ${errorMessage}`;
             addLog(err);
-            setError("Collection stopped due to error.");
+            setError(`Collection stopped due to error: ${errorMessage}`);
         } finally {
             setIsRunning(false);
         }
@@ -151,38 +198,51 @@ export function PipelineView({ initialSources, recentPapers }: PipelineViewProps
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Optimization</Label>
-                                        <div className="flex items-center space-x-2 h-10 border rounded-md px-3 bg-muted/50">
-                                            <Switch
-                                                id="agent-mode"
-                                                checked={useAgent}
-                                                onCheckedChange={setUseAgent}
-                                            />
-                                            <Label htmlFor="agent-mode" className="cursor-pointer">Use LLM Agent</Label>
+                                        <div className="flex items-center gap-1">
+                                            <Label>Query Strictness</Label>
+                                            <div className="group relative">
+                                                <span className="cursor-help text-muted-foreground hover:text-foreground">ⓘ</span>
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-popover text-popover-foreground text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                                    <p className="font-semibold mb-1">🔓 Relaxed:</p>
+                                                    <p className="mb-2">Maximum recall, AI filters results. Best for: exploration</p>
+                                                    <p className="font-semibold mb-1">⚖️ Balanced:</p>
+                                                    <p className="mb-2">Moderate precision & recall. Best for: most cases</p>
+                                                    <p className="font-semibold mb-1">🔒 Strict:</p>
+                                                    <p>High precision, fewer results. Best for: focused search</p>
+                                                </div>
+                                            </div>
                                         </div>
+                                        <Select value={strictness} onValueChange={(v) => setStrictness(v as "relaxed" | "balanced" | "strict")}>
+                                            <SelectTrigger className="bg-muted/50">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="relaxed">🔓 Relaxed</SelectItem>
+                                                <SelectItem value="balanced">⚖️ Balanced</SelectItem>
+                                                <SelectItem value="strict">🔒 Strict</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </div>
 
                                 {dateHorizon === 'custom' && (
                                     <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                                         <div className="space-y-2">
-                                            <Label>From Year</Label>
+                                            <Label>From Date</Label>
                                             <Input
-                                                type="number"
+                                                type="date"
                                                 value={customFrom}
                                                 onChange={(e) => setCustomFrom(e.target.value)}
                                                 className="bg-muted/50"
-                                                placeholder="2020"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>To Year</Label>
+                                            <Label>To Date</Label>
                                             <Input
-                                                type="number"
+                                                type="date"
                                                 value={customTo}
                                                 onChange={(e) => setCustomTo(e.target.value)}
                                                 className="bg-muted/50"
-                                                placeholder="2024"
                                             />
                                         </div>
                                     </div>
@@ -253,7 +313,7 @@ export function PipelineView({ initialSources, recentPapers }: PipelineViewProps
             <div className="space-y-4 pt-4">
                 <h3 className="text-xl font-semibold">Recently Collected</h3>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {recentPapers.map((paper: any) => (
+                    {recentPapers.map((paper: PaperItem) => (
                         <PaperCard key={paper.id} paper={paper} />
                     ))}
                     {recentPapers.length === 0 && (

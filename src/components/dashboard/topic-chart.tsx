@@ -6,7 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 const COLORS = ['#818cf8', '#60a5fa', '#34d399', '#f472b6', '#fbbf24'];
 
-export function TopicChart({ data }: { data: any[] }) {
+interface ChartDataItem {
+    name: string;
+    count: number;
+}
+
+export function TopicChart({ data }: { data: ChartDataItem[] }) {
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
     const activeItem = activeIndex !== null ? data[activeIndex] : null;

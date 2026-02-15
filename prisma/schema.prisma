@@ -1,56 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model User {
+  id               String                   @id @default(uuid())
+  email            String                   @unique
+  password         String
+  name             String?
+  image            String?
+  emailAlerts      Boolean                  @default(false)
+  newsletterAlerts Boolean                  @default(false)
+  createdAt        DateTime                 @default(now())
+  subscribers      NotificationSubscriber[]
+  favorites        UserFavorite[]
+  tags             UserTag[]
+  accounts         Account[]
+  llmConfigs       UserLLMConfig[] // NEW: User's LLM configurations
 }
 
-model User {
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model NotificationSubscriber {
   id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
+  email     String
+  userId    String
   createdAt DateTime @default(now())
-  favorites UserFavorite[]
-  tags      UserTag[]
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, email])
+}
+
+model NewsletterLog {
+  id         String   @id @default(uuid())
+  dateCode   String   @unique
+  title      String
+  content    String
+  type       String   @default("Newsletter")
+  paperCount Int
+  createdAt  DateTime @default(now())
+  papers     Paper[]  @relation("NewsletterLogToPaper")
 }
 
 model Paper {
-  id              String   @id @default(uuid())
-  title           String
-  abstract        String?
-  aiSummary       String?
-  url             String
-  source          String
-  publicationDate DateTime
-  collectedAt     DateTime @default(now())
-  tags            PaperTag[]
-  favoritedBy     UserFavorite[]
-  userTags        UserTag[]
+  id                String          @id @default(uuid())
+  title             String
+  abstract          String?
+  url               String          @unique
+  source            String
+  publicationDate   DateTime
+  collectedAt       DateTime        @default(now())
+  aiSummary         String?
+  deletedAt         DateTime?
+  relevanceScore    Float?          // Total relevance score (0-10)
+  technicalScore    Float?          // Technical relevance (0-10)
+  businessScore     Float?          // Business relevance (0-10)
+  timelinessScore   Float?          // Timeliness score (0-10)
+  practicalityScore Float?          // Practicality score (0-10)
+  assessmentReason  String?         // LLM reasoning for scores
+  tags              PaperTag[]
+  favoritedBy       UserFavorite[]
+  userTags          UserTag[]
+  newsletters       NewsletterLog[] @relation("NewsletterLogToPaper")
+
+  @@index([publicationDate])
+  @@index([source])
+  @@index([url])
+  @@index([collectedAt])
+  @@index([deletedAt])
+  @@index([title])
+  @@index([source, publicationDate], map: "Paper_source_date_idx")
 }
 
 model Tag {
-  id     String   @id @default(uuid())
-  name   String   @unique
-  type   String   // "Academic" or "Industrial"
-  papers PaperTag[]
+  id        String      @id @default(uuid())
+  name      String      @unique
+  type      String
+  category  String?
+  papers    PaperTag[]
+  trendData TrendData[]
+  userTags  UserTag[]
 }
 
 model PaperTag {
   paperId String
   tagId   String
-  paper   Paper @relation(fields: [paperId], references: [id])
-  tag     Tag   @relation(fields: [tagId], references: [id])
+  paper   Paper  @relation(fields: [paperId], references: [id])
+  tag     Tag    @relation(fields: [tagId], references: [id])
 
   @@id([paperId, tagId])
+  @@index([paperId])
+  @@index([tagId])
 }
 
 model UserFavorite {
   userId  String
   paperId String
-  user    User  @relation(fields: [userId], references: [id])
-  paper   Paper @relation(fields: [paperId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
+  paper   Paper  @relation(fields: [paperId], references: [id])
 
   @@id([userId, paperId])
 }
@@ -59,15 +127,170 @@ model UserTag {
   id      String @id @default(uuid())
   userId  String
   paperId String
-  tagName String
+  tagId   String
   user    User   @relation(fields: [userId], references: [id])
   paper   Paper  @relation(fields: [paperId], references: [id])
+  tag     Tag    @relation(fields: [tagId], references: [id])
+
+  @@index([paperId])
 }
 
 model Source {
-  id        String   @id @default(uuid())
-  name      String
-  url       String   // Base URL of the source
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id                String             @id @default(uuid())
+  name              String             @unique
+  url               String
+  type              String             @default("academic")
+  enabled           Boolean            @default(true)
+  requiresAuth      Boolean            @default(false)
+  authConfig        String?
+  createdAt         DateTime           @default(now())
+  socialCredentials SocialCredential[]
+
+  @@index([type])
 }
+
+model SocialCredential {
+  id           String    @id @default(uuid())
+  sourceId     String
+  platform     String
+  accessToken  String?
+  refreshToken String?
+  username     String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  source       Source    @relation(fields: [sourceId], references: [id])
+
+  @@unique([sourceId, platform])
+}
+
+model TrendData {
+  id        String   @id @default(uuid())
+  tagId     String
+  date      DateTime
+  count     Int
+  createdAt DateTime @default(now())
+  tag       Tag      @relation(fields: [tagId], references: [id])
+
+  @@unique([tagId, date])
+  @@index([date])
+  @@index([tagId, date])
+}
+
+model RegulatoryAlert {
+  id         String   @id @default(uuid())
+  sourceId   String
+  sourceName String
+  title      String
+  content    String
+  url        String
+  keywords   String
+  relevance  Int      @default(50)
+  priority   String   @default("MEDIUM")
+  status     String   @default("new")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([priority, status])
+  @@index([sourceId])
+  @@index([createdAt])
+}
+
+// ============================================
+// LLM Provider Management (Phase 2)
+// ============================================
+
+// Base LLM Provider definitions (system-wide)
+model LLMProviderBase {
+  id          String   @id @default(uuid())
+  type        String   @unique // groq, openai, anthropic, ollama, lmstudio, gemini, azure, cohere
+  name        String   // Display name
+  description String?
+  isCloud     Boolean  @default(true) // true = cloud API, false = local
+  baseUrl     String?  // Default base URL for local providers
+  docsUrl     String?  // Documentation URL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  models      LLMModelBase[]
+  userConfigs UserLLMConfig[]
+  
+  @@index([type])
+  @@index([isCloud])
+}
+
+// Base LLM Model definitions (system-wide)
+model LLMModelBase {
+  id            String   @id @default(uuid())
+  providerId    String
+  externalId    String   // Provider's model ID (e.g., "gpt-4", "llama-3.3-70b")
+  name          String   // Display name
+  description   String?
+  contextWindow Int?     // Context window size
+  capabilities  String   // JSON array: ["chat", "vision", "embedding"]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  provider     LLMProviderBase @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  userModels   UserLLMModel[]
+  
+  @@unique([providerId, externalId])
+  @@index([providerId])
+  @@index([isActive])
+}
+
+// User's LLM Provider Configuration
+model UserLLMConfig {
+  id           String    @id @default(uuid())
+  userId       String
+  providerId   String
+  name         String    // User-defined name (e.g., "My Groq Account")
+  apiKey       String?   // Encrypted API key for cloud providers
+  baseUrl      String?   // Custom base URL
+  status       String    @default("untested") // untested, connected, failed
+  errorMessage String?   // Last error message if failed
+  priority     Int       @default(0) // Fallback priority (0 = highest)
+  isEnabled    Boolean   @default(false) // Whether this provider is active
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime? // Soft delete
+  
+  // Relations
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     LLMProviderBase   @relation(fields: [providerId], references: [id])
+  userModels   UserLLMModel[]
+  
+  @@unique([userId, providerId, name])
+  @@index([userId])
+  @@index([providerId])
+  @@index([status])
+  @@index([priority])
+  @@index([isEnabled])
+  @@index([deletedAt])
+}
+
+// User's enabled LLM Models (junction table with additional config)
+model UserLLMModel {
+  id            String   @id @default(uuid())
+  userConfigId  String
+  modelId       String
+  isDefault     Boolean  @default(false) // Is this the default model for this provider
+  temperature   Float?   // Override temperature
+  maxTokens     Int?     // Override max tokens
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  userConfig UserLLMConfig @relation(fields: [userConfigId], references: [id], onDelete: Cascade)
+  model      LLMModelBase  @relation(fields: [modelId], references: [id])
+  
+  @@unique([userConfigId, modelId])
+  @@index([userConfigId])
+  @@index([modelId])
+}
+
+// Note: User model already defined above, relation added to existing model

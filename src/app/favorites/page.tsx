@@ -1,17 +1,19 @@
 import { prisma } from "@/lib/db"
 import { PaperCard } from "@/components/papers/paper-card"
-import { cookies } from "next/headers"
-import { PaperWithTags } from "@/lib/types"
+import { getAuthUser } from "@/lib/session"
+import { redirect } from "next/navigation"
 
-const MOCK_USER_ID = "user-1"; // Consistent with API
+export const dynamic = 'force-dynamic'
 
 export default async function FavoritesPage() {
-    // Ideally check session here
-    // const cookieStore = cookies();
-    // const userId = cookieStore.get('auth_user')?.value;
+    const user = await getAuthUser()
+    
+    if (!user) {
+        redirect('/login')
+    }
 
     const favorites = await prisma.userFavorite.findMany({
-        where: { userId: MOCK_USER_ID },
+        where: { userId: user.id },
         include: {
             paper: {
                 include: {
@@ -31,9 +33,14 @@ export default async function FavoritesPage() {
         }
     });
 
-    const formattedPapers = favorites.map((f) => ({
+    const formattedPapers = favorites.map((f: any) => ({
         ...f.paper,
-        tags: f.paper.tags.map((pt) => pt.tag)
+        tags: f.paper.tags.map((pt: any) => pt.tag),
+        relevanceScore: f.paper.relevanceScore ?? undefined,
+        technicalScore: f.paper.technicalScore ?? undefined,
+        businessScore: f.paper.businessScore ?? undefined,
+        timelinessScore: f.paper.timelinessScore ?? undefined,
+        practicalityScore: f.paper.practicalityScore ?? undefined
     }));
 
     return (

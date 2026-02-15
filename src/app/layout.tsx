@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ToastProvider, ToastContainer } from "@/components/ui/toast";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Sidebar } from "@/components/layout/sidebar";
+import { LLMInitializer } from "@/components/llm-initializer";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -26,14 +29,23 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 md:pl-[240px]">
-              <div className="container py-6 px-4 md:px-8 max-w-7xl mx-auto">
-                {children}
+          <ErrorBoundary>
+            <ToastProvider>
+              <LLMInitializer />
+              <div className="flex min-h-screen">
+                <Sidebar />
+                <main 
+                  role="main"
+                  className="flex-1 md:pl-[240px]"
+                >
+                  <div className="container py-6 px-4 md:px-8 max-w-7xl mx-auto">
+                    <ToastContainer />
+                    {children}
+                  </div>
+                </main>
               </div>
-            </main>
-          </div>
+            </ToastProvider>
+          </ErrorBoundary>
         </ThemeProvider>
       </body>
     </html>

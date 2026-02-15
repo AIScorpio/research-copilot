@@ -1,121 +1,129 @@
+/**
+ * Collection API - Updated to use new collection service
+ * Supports auto and manual modes with LLM-powered features
+ */
+
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { prisma } from '@/lib/db';
-import { searchOnline } from '@/lib/collector';
-import { processPaper } from '@/lib/processor';
-import { optimizeQuery } from '@/lib/optimizer';
+import { z } from 'zod';
+import { 
+    runCollection, 
+    runAutoCollection, 
+    runPipelineCollection,
+    CollectionOptions 
+} from '@/lib/collection-service';
+import { handleError, createValidationError } from '@/lib/error-handler';
+import { logger } from '@/lib/logger';
 
+// Validation schema for collection request
+const CollectionSchema = z.object({
+    mode: z.enum(['auto', 'manual', 'pipeline']).default('manual'),
+    query: z.string().min(1).max(500).optional(),
+    horizon: z.enum(['today', 'week', 'month', 'year', 'custom']).optional(),
+    dateFrom: z.string().regex(/^\d{4}(-\d{2}(-\d{2})?)?$/).optional(),
+    dateTo: z.string().regex(/^\d{4}(-\d{2}(-\d{2})?)?$/).optional(),
+    useLLMOptimization: z.boolean().optional(),
+    useLLMFiltering: z.boolean().optional(),
+    queryStrictness: z.enum(['relaxed', 'balanced', 'strict']).optional(),
+    maxResults: z.number().min(1).max(500).optional(),
+    minRelevanceScore: z.number().min(0).max(100).optional(),
+    sources: z.array(z.string()).optional(),
+    focusAreas: z.array(z.string()).optional()
+});
+
+/**
+ * POST /api/collection
+ * Main collection endpoint supporting multiple modes
+ */
 export async function POST(request: Request) {
     try {
-        try {
-            const { query, horizon, dateFrom, dateTo, useAgent } = await request.json();
-
-            // 0. LLM Optimization
-            let optimizedQuery = query || "AI in banking";
-            if (useAgent) {
-                optimizedQuery = await optimizeQuery(query || "AI in banking");
-            }
-
-            // 0.5. Determine sinceDate and toDate
-            let sinceDate: Date | undefined;
-            let toDate: Date | undefined;
-
-            if (horizon === 'custom' && dateFrom) {
-                // dateFrom is expected to be a year number like 2020 or 2023
-                // Treat as Jan 1st of that year
-                sinceDate = new Date(`${dateFrom}-01-01`);
-
-                if (dateTo) {
-                    // Treat as Dec 31st of that year
-                    toDate = new Date(`${dateTo}-12-31`);
-                }
-            } else if (horizon) {
-                const now = new Date();
-                if (horizon === 'today') sinceDate = new Date(now.setDate(now.getDate() - 1));
-                else if (horizon === 'week') sinceDate = new Date(now.setDate(now.getDate() - 7));
-                else if (horizon === 'month') sinceDate = new Date(now.setMonth(now.getMonth() - 1));
-                else if (horizon === 'year') sinceDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            } else {
-                const lastPaper = await prisma.paper.findFirst({
-                    orderBy: { publicationDate: 'desc' }
-                });
-                sinceDate = lastPaper ? lastPaper.publicationDate : undefined;
-            }
-
-            // 0.6. Get Enabled Sources
-            const sources = await prisma.source.findMany({ where: { enabled: true } });
-
-            // 1. Search Online
-            const rawPapers = await searchOnline(optimizedQuery, sinceDate, toDate, sources);
-
-            let newCount = 0;
-
-            for (const rawPaper of rawPapers) {
-                // 2. Process (Tagging)
-                const processedPaper = await processPaper(rawPaper);
-
-                // 3. Save to DB (Check duplicates)
-                const existing = await prisma.paper.findFirst({
-                    where: { url: processedPaper.url }
-                });
-
-                if (!existing) {
-                    // Create Paper
-                    const savedPaper = await prisma.paper.create({
-                        data: {
-                            title: processedPaper.title,
-                            abstract: processedPaper.abstract,
-                            url: processedPaper.url,
-                            source: processedPaper.source,
-                            publicationDate: processedPaper.publicationDate,
-                            collectedAt: new Date(),
-                        }
-                    });
-
-                    // Create/Link Tags
-                    for (const tag of processedPaper.suggestedTags) {
-                        // Find or create global Tag
-                        let dbTag = await prisma.tag.findUnique({
-                            where: { name: tag.name }
-                        });
-
-                        if (!dbTag) {
-                            dbTag = await prisma.tag.create({
-                                data: {
-                                    name: tag.name,
-                                    type: tag.type
-                                }
-                            });
-                        }
-
-                        // Link Paper with Tag
-                        await prisma.paperTag.create({
-                            data: {
-                                paperId: savedPaper.id,
-                                tagId: dbTag.id
-                            }
-                        });
-                    }
-                    newCount++;
-                }
-            }
-
-            // Purge dashboard cache
-            revalidatePath('/');
-
-            return NextResponse.json({
-                success: true,
-                message: `Collection complete. Found ${rawPapers.length} papers (${newCount} new).`,
-                newCount,
-                totalFound: rawPapers.length
+        const body = await request.json();
+        
+        // Validate input
+        const validationResult = CollectionSchema.safeParse(body);
+        if (!validationResult.success) {
+            const error = createValidationError('Invalid input', { 
+                details: validationResult.error.issues 
             });
-
-        } catch (error) {
-            console.error("Collection Error:", error);
-            return NextResponse.json({ success: false, error: "Failed to collect papers" }, { status: 500 });
+            const handled = handleError(error);
+            return NextResponse.json({ ...handled, success: false }, { status: handled.statusCode });
         }
+        
+        const data = validationResult.data;
+        
+        logger.info('Collection API called', { mode: data.mode, query: data.query });
+        
+        // Build collection options
+        const options: CollectionOptions = {
+            mode: data.mode,
+            query: data.query,
+            horizon: data.horizon,
+            dateFrom: data.dateFrom,
+            dateTo: data.dateTo,
+            useLLMOptimization: data.useLLMOptimization,
+            useLLMFiltering: data.useLLMFiltering,
+            queryStrictness: data.queryStrictness,
+            maxResults: data.maxResults,
+            minRelevanceScore: data.minRelevanceScore,
+            sources: data.sources,
+            focusAreas: data.focusAreas
+        };
+        
+        // Run collection based on mode
+        let result;
+        switch (data.mode) {
+            case 'auto':
+                result = await runAutoCollection(data.query);
+                break;
+            case 'pipeline':
+                result = await runPipelineCollection(data.query || 'AI in banking', options);
+                break;
+            case 'manual':
+            default:
+                result = await runCollection(options);
+                break;
+        }
+        
+        // Revalidate paths if new papers were added
+        if (result.newCount > 0) {
+            revalidatePath('/');
+            revalidatePath('/papers');
+        }
+        
+        return NextResponse.json(result, { 
+            status: result.success ? 200 : 500 
+        });
+        
     } catch (error) {
-        console.error("Outer Collection Error:", error);
-        return NextResponse.json({ success: false, error: "An unexpected error occurred during collection" }, { status: 500 });
+        logger.error('Collection API error', { error });
+        const handled = handleError(error);
+        return NextResponse.json({ 
+            ...handled, 
+            success: false 
+        }, { status: handled.statusCode });
+    }
+}
+
+/**
+ * GET /api/collection
+ * Get collection statistics and status
+ */
+export async function GET() {
+    try {
+        const { getCollectionStats } = await import('@/lib/collection-service');
+        const stats = await getCollectionStats();
+        
+        return NextResponse.json({
+            success: true,
+            stats
+        });
+        
+    } catch (error) {
+        logger.error('Collection stats API error', { error });
+        const handled = handleError(error);
+        return NextResponse.json({ 
+            ...handled, 
+            success: false 
+        }, { status: handled.statusCode });
     }
 }

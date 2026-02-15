@@ -6,8 +6,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-const renderActiveShape = (props: any) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+interface ChartDataItem {
+    name: string;
+    count: number;
+}
+
+interface ActiveShapeProps {
+    cx: number;
+    cy: number;
+    innerRadius: number;
+    outerRadius: number;
+    startAngle: number;
+    endAngle: number;
+    fill: string;
+}
+
+const renderActiveShape = (props: unknown) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props as ActiveShapeProps;
 
     return (
         <g>
@@ -25,7 +40,7 @@ const renderActiveShape = (props: any) => {
     );
 };
 
-export function MethodologyChart({ data }: { data: any[] }) {
+export function MethodologyChart({ data }: { data: ChartDataItem[] }) {
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
     const activeItem = activeIndex !== null ? data[activeIndex] : null;

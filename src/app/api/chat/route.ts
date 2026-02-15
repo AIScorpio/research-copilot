@@ -1,9 +1,27 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { retrieveContext, generateResponse } from '@/lib/rag';
+import { handleError, createValidationError } from '@/lib/error-handler';
+
+const ChatSchema = z.object({
+    messages: z.array(z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string().max(5000)
+    })).min(1).max(50)
+});
 
 export async function POST(request: Request) {
     try {
-        const { messages } = await request.json();
+        const body = await request.json();
+        
+        const validationResult = ChatSchema.safeParse(body);
+        if (!validationResult.success) {
+            const error = createValidationError('Invalid input', { details: validationResult.error.issues });
+            const handled = handleError(error);
+            return NextResponse.json(handled, { status: handled.statusCode });
+        }
+        
+        const { messages } = validationResult.data;
         const lastMessage = messages[messages.length - 1];
         const query = lastMessage.content;
 
@@ -16,11 +34,11 @@ export async function POST(request: Request) {
         return NextResponse.json({
             role: 'assistant',
             content: answer,
-            sources: context // Optional: returning sources for UI citation
+            sources: context
         });
 
     } catch (error) {
-        console.error(error);
-        return NextResponse.json({ error: 'Failed to chat' }, { status: 500 });
+        const handled = handleError(error);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }

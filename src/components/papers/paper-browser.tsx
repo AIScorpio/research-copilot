@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { SearchBar } from "@/components/papers/search-bar"
 import { PaperCard } from "@/components/papers/paper-card"
 import { Button } from "@/components/ui/button"
-import { LayoutGrid, List as ListIcon } from "lucide-react"
+import { LayoutGrid, List as ListIcon, X } from "lucide-react"
 import {
     Select,
     SelectContent,
@@ -14,8 +14,26 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
+interface Paper {
+    id: string;
+    title: string;
+    abstract: string | null;
+    url: string;
+    source: string;
+    publicationDate: Date | string;
+    collectedAt?: Date | string;
+    aiSummary?: string | null;
+    favoritedBy?: unknown[];
+    tags?: { id: string; name: string; type: string }[];
+    relevanceScore?: number;
+    technicalScore?: number;
+    businessScore?: number;
+    timelinessScore?: number;
+    practicalityScore?: number;
+}
+
 interface PaperListProps {
-    papers: any[];
+    papers: Paper[];
     availableTags: { id: string; name: string }[];
 }
 
@@ -24,6 +42,10 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
+
+    const currentSector = searchParams.get('sector')
+    const currentTopic = searchParams.get('topic')
+    const currentSearch = searchParams.get('search')
 
     const handleSortChange = (value: string) => {
         const params = new URLSearchParams(searchParams);
@@ -39,6 +61,10 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
             params.set('topic', value);
         }
         router.replace(`${pathname}?${params.toString()}`);
+    }
+
+    const clearFilters = () => {
+        router.replace('/papers');
     }
 
     return (
@@ -92,6 +118,35 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
                         </Button>
                     </div>
                 </div>
+
+                {/* Active Filters Display */}
+                {(currentSector || currentTopic || currentSearch) && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-muted-foreground">Active filters:</span>
+                        {currentSector && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+                                Sector: {currentSector}
+                            </span>
+                        )}
+                        {currentTopic && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
+                                Topic: {currentTopic}
+                            </span>
+                        )}
+                        {currentSearch && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">
+                                Search: {currentSearch}
+                            </span>
+                        )}
+                        <button
+                            onClick={clearFilters}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <X className="h-3 w-3" />
+                            Clear all
+                        </button>
+                    </div>
+                )}
             </div>
 
             {papers.length === 0 ? (

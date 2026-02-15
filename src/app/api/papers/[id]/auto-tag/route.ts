@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateTags } from '@/lib/llm';
+import { handleError, createNotFoundError } from '@/lib/error-handler';
 
 export async function POST(
     request: Request,
@@ -11,7 +12,11 @@ export async function POST(
 
     try {
         const paper = await prisma.paper.findUnique({ where: { id } });
-        if (!paper) return NextResponse.json({ error: "Paper not found" }, { status: 404 });
+        if (!paper) {
+            const error = createNotFoundError('Paper');
+            const handled = handleError(error);
+            return NextResponse.json(handled, { status: handled.statusCode });
+        }
 
         // Use LLM to extract research topics from paper
         const suggestedTags = await generateTags(paper.title, paper.abstract || '');
@@ -32,7 +37,7 @@ export async function POST(
         return NextResponse.json({ candidates: newSuggestions });
 
     } catch (error) {
-        console.error('[Auto-Tag] Error:', error);
-        return NextResponse.json({ error: 'Failed to generate tags' }, { status: 500 });
+        const handled = handleError(error);
+        return NextResponse.json({ ...handled, candidates: [] }, { status: handled.statusCode });
     }
 }

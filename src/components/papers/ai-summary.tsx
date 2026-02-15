@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 
@@ -27,7 +27,7 @@ export function AISummary({ paperId, initialSummary }: AISummaryProps) {
             } else {
                 setError("Failed to generate summary.");
             }
-        } catch (err) {
+        } catch {
             setError("Error connecting to server.");
         } finally {
             setIsLoading(false);

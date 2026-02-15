@@ -1,8 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, FileText, Activity, TrendingUp } from "lucide-react"
 import { CollectionCalendar } from "./collection-calendar"
+import Link from "next/link"
 
-export function StatsCards({ total, industrialCount, academicCount, growthRate, todayCount, dailyStats }: any) {
+interface StatsCardsProps {
+    total: number;
+    industrialCount: number;
+    academicCount: number;
+    growthRate: number;
+    dailyStats: Record<string, number>;
+}
+
+export function StatsCards({ total, industrialCount, academicCount, growthRate, dailyStats }: StatsCardsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-3">
             <Card className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20 shadow-sm transition-all hover:shadow-md">
@@ -29,18 +38,20 @@ export function StatsCards({ total, industrialCount, academicCount, growthRate, 
                 </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-500/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Industrial Use Cases</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{industrialCount}</div>
-                    <p className="text-xs text-muted-foreground">
-                        Focus: AML, Risk, Fraud
-                    </p>
-                </CardContent>
-            </Card>
+            <Link href="/papers?sector=Industrial">
+                <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-500/20 cursor-pointer hover:shadow-md transition-all">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Industrial Use Cases</CardTitle>
+                        <Activity className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{industrialCount}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Focus: AML, Risk, Fraud
+                        </p>
+                    </CardContent>
+                </Card>
+            </Link>
 
             <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -1,9 +1,25 @@
 import { prisma } from '@/lib/db';
 import Groq from 'groq-sdk';
+import { logger } from './logger';
 
 export interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
+}
+
+interface PaperTag {
+    tag: {
+        name: string;
+    };
+}
+
+interface Paper {
+    id: string;
+    title: string;
+    abstract: string | null;
+    source: string;
+    publicationDate: Date;
+    tags?: PaperTag[];
 }
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
@@ -35,21 +51,15 @@ export async function retrieveContext(query: string) {
     return papers;
 }
 
-export async function generateResponse(query: string, contextPapers: any[]): Promise<string> {
+export async function generateResponse(query: string, contextPapers: Paper[]): Promise<string> {
     if (contextPapers.length === 0) {
         return "I couldn't find any papers in your repository matching that query. Try running a collection for relevant topics first, or ask me something broader.";
     }
 
     // Build context from papers
-    const paperContext = contextPapers.map((p: any, idx: number) => {
-        const tags = p.tags?.map((pt: any) => pt.tag.name).join(', ') || 'No tags';
-        return `[Paper ${idx + 1}]
-Title: ${p.title}
-Tags: ${tags}
-Abstract: ${p.abstract || 'No abstract available'}
-Source: ${p.source}
-Publication Date: ${new Date(p.publicationDate).toLocaleDateString()}
----`;
+    const paperContext = contextPapers.map((p: Paper, idx: number) => {
+        const tags = p.tags?.map((pt: PaperTag) => pt.tag.name).join(', ') || 'No tags';
+        return `[Paper ${idx + 1}]\nTitle: ${p.title}\nTags: ${tags}\nAbstract: ${p.abstract || 'No abstract available'}\nSource: ${p.source}\nPublication Date: ${new Date(p.publicationDate).toLocaleDateString()}\n---`;
     }).join('\n\n');
 
     // Use LLM if API key available, otherwise use fallback
@@ -80,7 +90,7 @@ Please provide a detailed, specific answer based on these papers. If asked for e
 
             return completion.choices[0]?.message?.content || 'Unable to generate response';
         } catch (error) {
-            console.error('[RAG] Groq error:', error);
+            logger.error('RAG Groq error', { error });
             return generateFallbackResponse(query, contextPapers);
         }
     } else {
@@ -88,12 +98,12 @@ Please provide a detailed, specific answer based on these papers. If asked for e
     }
 }
 
-function generateFallbackResponse(query: string, contextPapers: any[]): string {
-    const titles = contextPapers.map((p: any) => `"${p.title}"`).join(', ');
+function generateFallbackResponse(query: string, contextPapers: Paper[]): string {
+    const titles = contextPapers.map((p: Paper) => `"${p.title}"`).join(', ');
     const lowerQuery = query.toLowerCase();
 
     if (lowerQuery.includes('summary') || lowerQuery.includes('summarize')) {
-        return `**Summary of Found Papers:**\n\n${contextPapers.slice(0, 3).map((p: any, i: number) =>
+        return `**Summary of Found Papers:**\n\n${contextPapers.slice(0, 3).map((p: Paper, i: number) =>
             `${i + 1}. **${p.title}**\n   ${p.abstract?.substring(0, 200)}...\n`
         ).join('\n')}`;
     }

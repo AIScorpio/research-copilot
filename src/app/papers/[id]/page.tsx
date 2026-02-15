@@ -1,14 +1,13 @@
 import { prisma } from "@/lib/db"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, ExternalLink, Calendar, Database, Share2 } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { CustomTags } from "@/components/papers/custom-tags"
 import { AISummary } from "@/components/papers/ai-summary"
+import { getAuthUser } from "@/lib/session"
 
-const MOCK_USER_ID = "user-1";
+export const dynamic = 'force-dynamic'
 
 export default async function PaperDetailPage({
     params,
@@ -16,6 +15,8 @@ export default async function PaperDetailPage({
     params: Promise<{ id: string }>
 }) {
     const { id } = await params;
+    const user = await getAuthUser();
+    
     const paper = await prisma.paper.findUnique({
         where: { id },
         include: {
@@ -24,9 +25,9 @@ export default async function PaperDetailPage({
                     tag: true
                 }
             },
-            userTags: {
-                where: { userId: MOCK_USER_ID }
-            }
+            userTags: user ? {
+                where: { userId: user.id }
+            } : false
         }
     });
 

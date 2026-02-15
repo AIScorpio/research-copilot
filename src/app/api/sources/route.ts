@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { handleError } from '@/lib/error-handler';
+import { requireAuth, createUnauthorizedResponse } from '@/lib/session';
+import { CSRF_HEADER_NAME } from '@/lib/csrf';
+import { cookies } from 'next/headers';
+import { schemas } from '@/lib/validation/schemas';
+import { validateRequest } from '@/lib/validation/helpers';
 
 export async function GET() {
     try {
@@ -18,7 +24,6 @@ export async function GET() {
             }
         }
 
-        // Deduplication Logic
         const allSources = await prisma.source.findMany({ orderBy: { createdAt: 'asc' } });
         const uniqueNames = new Set();
         const duplicates = [];
@@ -40,14 +45,25 @@ export async function GET() {
         const sources = await prisma.source.findMany({ orderBy: { createdAt: 'desc' } });
         return NextResponse.json(sources);
     } catch (e) {
-        return NextResponse.json({ error: 'Failed to fetch sources' }, { status: 500 });
+        const handled = handleError(e);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }
 
 export async function POST(request: Request) {
     try {
-        const { name, url } = await request.json();
-        if (!name || !url) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+        await requireAuth();
+
+        const cookieStore = await cookies();
+        const isValidCSRF = request.headers.get(CSRF_HEADER_NAME) === cookieStore.get('csrf_token')?.value;
+        if (!isValidCSRF) {
+            return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+        }
+
+        const validation = validateRequest(schemas.sources.create, await request.json());
+        if (!validation.success) return validation.response;
+
+        const { name, url } = validation.data;
 
         const existing = await prisma.source.findFirst({
             where: {
@@ -67,16 +83,36 @@ export async function POST(request: Request) {
         });
         return NextResponse.json(source);
     } catch (e) {
-        return NextResponse.json({ error: 'Failed to create source' }, { status: 500 });
+        if (e instanceof Error && e.message === 'Unauthorized') {
+            return createUnauthorizedResponse();
+        }
+        const handled = handleError(e);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }
 
 export async function DELETE(request: Request) {
     try {
-        const { id } = await request.json();
+        await requireAuth();
+
+        const cookieStore = await cookies();
+        const isValidCSRF = request.headers.get(CSRF_HEADER_NAME) === cookieStore.get('csrf_token')?.value;
+        if (!isValidCSRF) {
+            return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+        }
+
+        const validation = validateRequest(schemas.sources.delete, await request.json());
+        if (!validation.success) return validation.response;
+
+        const { id } = validation.data;
+
         await prisma.source.delete({ where: { id } });
         return NextResponse.json({ success: true });
     } catch (e) {
-        return NextResponse.json({ error: 'Failed to delete source' }, { status: 500 });
+        if (e instanceof Error && e.message === 'Unauthorized') {
+            return createUnauthorizedResponse();
+        }
+        const handled = handleError(e);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }

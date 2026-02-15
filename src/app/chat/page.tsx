@@ -44,7 +44,7 @@ export default function ChatPage() {
             if (data.error) throw new Error(data.error);
 
             setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
-        } catch (e) {
+        } catch {
             setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error answering that." }]);
         } finally {
             setIsLoading(false);

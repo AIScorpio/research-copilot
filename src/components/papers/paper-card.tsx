@@ -8,13 +8,40 @@ import { Star, Share2, ExternalLink, Plus, Sparkles, Check, X, Loader2, Calendar
 import Link from "next/link"
 import { useState } from "react"
 
-export function PaperCard({ paper }: { paper: any }) {
-    const [favorite, setFavorite] = useState(paper.favoritedBy?.length > 0)
-    const [tags, setTags] = useState(paper.tags || [])
+interface Tag {
+    id: string;
+    name: string;
+    type: string;
+}
+
+interface Suggestion {
+    name: string;
+}
+
+interface Paper {
+    id: string;
+    title: string;
+    abstract: string | null;
+    url: string;
+    source: string;
+    publicationDate: string | Date;
+    collectedAt?: string | Date;
+    favoritedBy?: unknown[];
+    tags?: Tag[];
+    relevanceScore?: number;
+    technicalScore?: number;
+    businessScore?: number;
+    timelinessScore?: number;
+    practicalityScore?: number;
+}
+
+export function PaperCard({ paper }: { paper: Paper }) {
+    const [favorite, setFavorite] = useState(paper.favoritedBy?.length ? paper.favoritedBy.length > 0 : false)
+    const [tags, setTags] = useState<Tag[]>(paper.tags || [])
     const [newTag, setNewTag] = useState("")
     const [isAdding, setIsAdding] = useState(false)
     const [isAutoTagging, setIsAutoTagging] = useState(false)
-    const [suggestions, setSuggestions] = useState<any[]>([])
+    const [suggestions, setSuggestions] = useState<Suggestion[]>([])
     const [isDeleted, setIsDeleted] = useState(false)
     const [isEditingDate, setIsEditingDate] = useState(false)
     const [pubDate, setPubDate] = useState(() => {
@@ -27,7 +54,7 @@ export function PaperCard({ paper }: { paper: any }) {
         setFavorite(!favorite)
         try {
             await fetch(`/api/papers/${paper.id}/favorite`, { method: 'POST' });
-        } catch (e) {
+        } catch {
             setFavorite(!favorite) // revert
         }
     }
@@ -89,7 +116,7 @@ export function PaperCard({ paper }: { paper: any }) {
                 const added = await res.json();
                 console.log('[PaperCard] Tag added successfully:', added);
 
-                if (!tags.find((t: any) => t.name === added.tagName)) {
+                if (!tags.find((t: Tag) => t.name === added.tagName)) {
                     setTags([...tags, { id: added.id, name: added.tagName, type: added.type }]);
                 }
                 setNewTag("");
@@ -143,7 +170,7 @@ export function PaperCard({ paper }: { paper: any }) {
             });
 
             if (res.ok) {
-                setTags(tags.filter((t: any) => t.id !== tagId));
+                setTags(tags.filter((t: Tag) => t.id !== tagId));
                 console.log('[PaperCard] Tag removed successfully');
             } else {
                 console.error('[PaperCard] Failed to remove tag');
@@ -157,28 +184,71 @@ export function PaperCard({ paper }: { paper: any }) {
 
     return (
         <Card className="flex flex-col group relative overflow-hidden transition-all duration-300 hover:shadow-lg">
-            {/* Quick Actions Overlay (Hidden by default, shown on group hover/swipe simulation) */}
-            <div className="absolute top-0 right-0 p-2 flex gap-1 transform translate-x-full group-hover:translate-x-0 transition-transform duration-300 bg-background/80 backdrop-blur-sm rounded-bl-xl border-l border-b z-10">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-500" onClick={() => setIsEditingDate(true)} title="Edit Publication Date">
-                    <Calendar className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={handleDelete} title="Remove from Library">
-                    <X className="h-4 w-4" />
-                </Button>
-            </div>
+            <CardHeader className="relative">
+                {/* Quick Actions Overlay - Moved to bottom left to avoid overlapping with favorite button */}
+                <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                    <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        className="h-7 w-7 bg-background/90 hover:bg-background shadow-sm" 
+                        onClick={(e) => { e.stopPropagation(); setIsEditingDate(true); }} 
+                        aria-label="Edit publication date"
+                        title="Edit date"
+                    >
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground hover:text-blue-500" />
+                    </Button>
+                    <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        className="h-7 w-7 bg-background/90 hover:bg-background shadow-sm" 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(); }} 
+                        aria-label="Remove from library"
+                        title="Delete paper"
+                    >
+                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                </div>
 
-            <CardHeader>
                 <div className="flex justify-between items-start gap-4">
-                    <Link href={`/papers/${paper.id}`} className="hover:underline flex-1">
+                    <Link href={`/papers/${paper.id}`} className="hover:underline flex-1 pr-8">
                         <CardTitle className="text-lg font-semibold leading-tight">{paper.title}</CardTitle>
                     </Link>
-                    <Button variant="ghost" size="icon" onClick={toggleFavorite} className={favorite ? "text-yellow-500" : "text-muted-foreground"}>
-                        <Star className={`h-4 w-4 ${favorite ? "fill-current" : ""}`} />
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={toggleFavorite} 
+                        className={`flex-shrink-0 ${favorite ? "text-yellow-500" : "text-muted-foreground"}`} 
+                        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                        title={favorite ? "Remove from favorites" : "Add to favorites"}
+                    >
+                        <Star className={`h-5 w-5 ${favorite ? "fill-current" : ""}`} />
                     </Button>
                 </div>
                 <CardDescription className="flex items-center gap-2 text-xs flex-wrap">
                     <span className="font-medium text-blue-600 dark:text-blue-400">{paper.source}</span>
                     <span>•</span>
+                    
+                    {/* Relevance Score Badge */}
+                    {paper.relevanceScore !== undefined && paper.relevanceScore !== null && (
+                        <>
+                            <span 
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    paper.relevanceScore >= 8 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                    paper.relevanceScore >= 6 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                    paper.relevanceScore >= 5 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                }`}
+                                title={`Relevance Score: ${paper.relevanceScore.toFixed(1)}/10
+Technical: ${paper.technicalScore?.toFixed(1) || 'N/A'}
+Business: ${paper.businessScore?.toFixed(1) || 'N/A'}
+Timeliness: ${paper.timelinessScore?.toFixed(1) || 'N/A'}
+Practicality: ${paper.practicalityScore?.toFixed(1) || 'N/A'}`}
+                            >
+                                {paper.relevanceScore.toFixed(1)} ★
+                            </span>
+                            <span>•</span>
+                        </>
+                    )}
 
                     {isEditingDate ? (
                         <div className="flex items-center gap-1 bg-muted px-2 py-1 rounded-md">
@@ -279,7 +349,7 @@ export function PaperCard({ paper }: { paper: any }) {
                             <span className="text-xs text-muted-foreground italic opacity-60">No tags identified</span>
                         )}
 
-                        {tags.map((tag: any) => (
+                        {tags.map((tag: Tag) => (
                             <div key={tag.id} className="flex items-center gap-1">
                                 <Badge
                                     variant={tag.type === "Industrial" ? "default" : tag.type === "Academic" ? "secondary" : "outline"}
@@ -318,7 +388,7 @@ export function PaperCard({ paper }: { paper: any }) {
                                 >
                                     <Check className="h-3 w-3" />
                                 </Button>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => setIsAdding(false)}>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => setIsAdding(false)} aria-label="Close tag input">
                                     <X className="h-3 w-3" />
                                 </Button>
                             </div>
@@ -340,7 +410,7 @@ export function PaperCard({ paper }: { paper: any }) {
                     </Button>
                     <Button variant="ghost" size="icon" className="group/share" onClick={() => {
                         if (navigator.share) {
-                            navigator.share({ title: paper.title, text: paper.abstract, url: paper.url })
+                            navigator.share({ title: paper.title, text: paper.abstract || undefined, url: paper.url })
                         } else {
                             navigator.clipboard.writeText(paper.url);
                             alert("Link copied to clipboard!");

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { PaperBrowser } from "@/components/papers/paper-browser"
 import { PaperWithTags } from "@/lib/types"
+import Breadcrumb from "@/components/ui/breadcrumb"
 
 export default async function PapersPage({
     searchParams,
@@ -36,7 +37,7 @@ export default async function PapersPage({
                 }
             }
         }
-        if (sector) whereClause.tags.some.tag.OR.push({ name: sector });
+        if (sector) whereClause.tags.some.tag.OR.push({ type: sector });
         if (topic) whereClause.tags.some.tag.OR.push({ name: topic });
     }
 
@@ -47,7 +48,7 @@ export default async function PapersPage({
             favoritedBy: true
         },
         orderBy: {
-            publicationDate: sort === 'oldest' ? 'asc' : 'desc'
+            collectedAt: sort === 'oldest' ? 'asc' : 'desc'
         }
     });
 
@@ -55,10 +56,25 @@ export default async function PapersPage({
         orderBy: { name: 'asc' }
     });
 
-    const formattedPapers = papers.map((p: PaperWithTags) => ({
+    const formattedPapers = papers.map((p: any) => ({
         ...p,
-        tags: p.tags.map(pt => pt.tag)
+        tags: p.tags.map((pt: any) => pt.tag),
+        relevanceScore: p.relevanceScore ?? undefined,
+        technicalScore: p.technicalScore ?? undefined,
+        businessScore: p.businessScore ?? undefined,
+        timelinessScore: p.timelinessScore ?? undefined,
+        practicalityScore: p.practicalityScore ?? undefined
     }));
 
-    return <PaperBrowser papers={formattedPapers} availableTags={tags} />
+    return (
+        <>
+            <div className="mb-6">
+                <Breadcrumb items={[
+                    { label: 'Home', href: '/' },
+                    { label: 'Library', href: '/papers' }
+                ]} />
+            </div>
+            <PaperBrowser papers={formattedPapers} availableTags={tags} />
+        </>
+    );
 }

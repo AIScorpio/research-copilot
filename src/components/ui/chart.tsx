@@ -2,8 +2,31 @@
 
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
+import DOMPurify from "dompurify"
 
 import { cn } from "@/lib/utils"
+
+// Sanitize ID for safe use in CSS selectors
+function sanitizeCssId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9-_]/g, "")
+}
+
+// Sanitize CSS color value
+function sanitizeCssColor(color: string): string {
+  // Only allow valid CSS color characters: hex codes, rgb(), rgba(), hsl(), hsla(), named colors
+  const hexColor = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+  const rgbColor = /^rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$/
+  const rgbaColor = /^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*[\d.]+\s*\)$/
+  const hslColor = /^hsl\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%\s*\)$/
+  const hslaColor = /^hsla\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%\s*,\s*[\d.]+\s*\)$/
+  const namedColor = /^[a-zA-Z]+$/
+  
+  if (hexColor.test(color) || rgbColor.test(color) || rgbaColor.test(color) ||
+      hslColor.test(color) || hslaColor.test(color) || namedColor.test(color)) {
+    return color
+  }
+  return ""
+}
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -47,7 +70,7 @@ function ChartContainer({
   >["children"]
 }) {
   const uniqueId = React.useId()
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
+  const chartId = `chart-${sanitizeCssId(id || uniqueId.replace(/:/g, ""))}`
 
   return (
     <ChartContext.Provider value={{ config }}>
@@ -78,25 +101,43 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+  const sanitizedId = sanitizeCssId(id)
+
+  const cssContent = Object.entries(THEMES)
+    .map(
+      ([theme, prefix]) => `
+${prefix} [data-chart=${sanitizedId}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    const sanitizedColor = sanitizeCssColor(color || "")
+    return sanitizedColor ? `  --color-${sanitizeCssId(key)}: ${sanitizedColor};` : null
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `
-          )
-          .join("\n"),
+    )
+    .join("\n")
+
+  // Use DOMPurify for an extra layer of security, configured to allow CSS content
+  DOMPurify.addHook("uponSanitizeAttribute", function (node, data) {
+    if (data.attrName === "type" && data.attrValue === "text/css") {
+      node.setAttribute(data.attrName, data.attrValue)
+    }
+  })
+
+  return (
+    <style
+      type="text/css"
+      dangerouslySetInnerHTML={{
+        __html: DOMPurify.sanitize(cssContent, {
+          ALLOWED_TAGS: ["style"],
+          ALLOWED_ATTR: ["type"],
+          ALLOW_DATA_ATTR: false,
+        }),
       }}
     />
   )

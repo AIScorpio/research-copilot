@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { handleError, createValidationError } from '@/lib/error-handler';
 
 /**
  * DELETE /api/papers/[id]
@@ -23,8 +24,8 @@ export async function DELETE(
 
         return NextResponse.json({ success: true, message: "Paper removed successfully" });
     } catch (error) {
-        console.error('[API/Papers/Delete] Error:', error);
-        return NextResponse.json({ error: 'Failed to delete paper' }, { status: 500 });
+        const handled = handleError(error);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }
 
@@ -48,7 +49,9 @@ export async function PATCH(
         }
 
         if (Object.keys(updateData).length === 0) {
-            return NextResponse.json({ error: "No update fields provided" }, { status: 400 });
+            const error = createValidationError('No update fields provided');
+            const handled = handleError(error);
+            return NextResponse.json(handled, { status: handled.statusCode });
         }
 
         const paper = await prisma.paper.update({
@@ -58,7 +61,7 @@ export async function PATCH(
 
         return NextResponse.json({ success: true, paper });
     } catch (error) {
-        console.error('[API/Papers/Update] Error:', error);
-        return NextResponse.json({ error: 'Failed to update paper' }, { status: 500 });
+        const handled = handleError(error);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }

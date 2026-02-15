@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateSummary } from '@/lib/llm';
+import { handleError, createNotFoundError } from '@/lib/error-handler';
 
 export async function POST(
     request: Request,
@@ -14,7 +15,9 @@ export async function POST(
         });
 
         if (!paper) {
-            return NextResponse.json({ error: "Paper not found" }, { status: 404 });
+            const error = createNotFoundError('Paper');
+            const handled = handleError(error);
+            return NextResponse.json(handled, { status: handled.statusCode });
         }
 
         // Generate summary if not already present or force refresh
@@ -29,7 +32,7 @@ export async function POST(
         return NextResponse.json({ summary });
 
     } catch (error) {
-        console.error('[API/Summary] Error:', error);
-        return NextResponse.json({ error: 'Failed to generate summary' }, { status: 500 });
+        const handled = handleError(error);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }

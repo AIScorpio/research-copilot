@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { handleError } from '@/lib/error-handler';
 
 export async function GET() {
     try {
@@ -41,6 +42,7 @@ export async function GET() {
             customStats
         });
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+        const handled = handleError(error);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }

@@ -4,19 +4,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Trash2, Plus } from "lucide-react"
 
+interface Source {
+    id: string;
+    name: string;
+    url: string;
+}
+
 export default function SourceManager() {
-    const [sources, setSources] = useState<any[]>([]);
+    const [sources, setSources] = useState<Source[]>([]);
     const [newName, setNewName] = useState("");
     const [newUrl, setNewUrl] = useState("");
-
-    useEffect(() => {
-        fetchSources();
-    }, []);
 
     const fetchSources = async () => {
         const res = await fetch('/api/sources');
         if (res.ok) setSources(await res.json());
-    }
+    };
+
+    useEffect(() => {
+        fetchSources();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleAdd = async () => {
         if (!newName || !newUrl) return;

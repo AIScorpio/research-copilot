@@ -1,18 +1,22 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
+import { handleError, createValidationError } from '@/lib/error-handler';
+import { schemas } from '@/lib/validation/schemas';
+import { validateRequest } from '@/lib/validation/helpers';
 
 export async function POST(request: Request) {
     try {
-        const { email, password } = await request.json();
+        const validation = validateRequest(schemas.auth.register, await request.json());
+        if (!validation.success) return validation.response;
 
-        if (!email || !password) {
-            return NextResponse.json({ error: "Missing email or password" }, { status: 400 });
-        }
+        const { email, password } = validation.data;
 
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) {
-            return NextResponse.json({ error: "User already exists" }, { status: 400 });
+            const error = createValidationError('User with this email already exists');
+            const handled = handleError(error);
+            return NextResponse.json(handled, { status: handled.statusCode });
         }
 
         const hashedPassword = hashPassword(password);
@@ -23,11 +27,10 @@ export async function POST(request: Request) {
             }
         });
 
-        // In a real app, we would set a session cookie here.
-        // For now, return success and let frontend handle redirection to login or auto-login logic.
         return NextResponse.json({ success: true, userId: user.id });
 
     } catch (error) {
-        return NextResponse.json({ error: "Registration failed" }, { status: 500 });
+        const handled = handleError(error);
+        return NextResponse.json(handled, { status: handled.statusCode });
     }
 }
