@@ -46,6 +46,7 @@ export function LLMProviderManager() {
     const [availableProviders, setAvailableProviders] = useState<AvailableProvider[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [ollamaModels, setOllamaModels] = useState<Record<string, any[]>>({});
+    const [groqModels, setGroqModels] = useState<Record<string, any[]>>({});
     const { addToast } = useToast();
 
     // Fetch Ollama models dynamically when Ollama configs are present
@@ -75,6 +76,34 @@ export function LLMProviderManager() {
             fetchOllamaModels();
         }
     }, [configs, availableProviders]);
+
+    // Fetch Groq models dynamically when Groq configs are present
+    useEffect(() => {
+        const fetchGroqModels = async () => {
+            const groqConfigs = configs.filter(c => c.provider.type === 'groq');
+            
+            for (const config of groqConfigs) {
+                try {
+                    // Get API key from the config or from userLLMConfig
+                    const response = await fetch(`/api/llm-providers/groq-models`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.models.length > 0) {
+                        setGroqModels(prev => ({
+                            ...prev,
+                            [config.id]: data.models
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch Groq models:', error);
+                }
+            }
+        };
+
+        if (configs.length > 0) {
+            fetchGroqModels();
+        }
+    }, [configs]);
 
     useEffect(() => {
         fetchProviders();
@@ -208,6 +237,8 @@ export function LLMProviderManager() {
             if (result.success) {
                 addToast('Model selected', 'success');
                 await fetchProviders();
+                // Reinitialize LLM providers on server to use new model
+                await fetch('/api/llm-init?force=true', { method: 'POST' });
             } else {
                 addToast(result.message || 'Failed to select model', 'error');
             }
@@ -237,10 +268,26 @@ export function LLMProviderManager() {
             <CardContent>
                 <div className="space-y-3">
                     {configs.map((config) => {
-                        // Use dynamic Ollama models if available, otherwise fall back to static list
-                        const dynamicModels = config.provider.type === 'ollama' && ollamaModels[config.id]
-                            ? ollamaModels[config.id].map(m => ({ id: m.externalId, name: m.name, externalId: m.externalId }))
-                            : availableProviders.find(p => p.type === config.provider.type)?.models || [];
+                        // Use dynamic models if available (Ollama or Groq), otherwise fall back to static list
+                        let dynamicModels: { id: string; name: string; externalId: string }[] = [];
+                        
+                        if (config.provider.type === 'ollama' && ollamaModels[config.id]) {
+                            dynamicModels = ollamaModels[config.id].map(m => ({ 
+                                id: m.externalId, 
+                                name: m.name, 
+                                externalId: m.externalId 
+                            }));
+                        } else if (config.provider.type === 'groq' && groqModels[config.id]) {
+                            dynamicModels = groqModels[config.id]
+                                .filter((m: any) => m.active)
+                                .map((m: any) => ({ 
+                                    id: m.externalId, 
+                                    name: m.name, 
+                                    externalId: m.externalId 
+                                }));
+                        } else {
+                            dynamicModels = availableProviders.find(p => p.type === config.provider.type)?.models || [];
+                        }
                         
                         return (
                             <LLMProviderCard

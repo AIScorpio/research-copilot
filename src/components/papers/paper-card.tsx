@@ -5,6 +5,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Star, Share2, ExternalLink, Plus, Sparkles, Check, X, Loader2, Calendar } from "lucide-react"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -183,47 +189,52 @@ export function PaperCard({ paper }: { paper: Paper }) {
     if (isDeleted) return null;
 
     return (
-        <Card className="flex flex-col group relative overflow-hidden transition-all duration-300 hover:shadow-lg">
-            <CardHeader className="relative">
-                {/* Quick Actions Overlay - Moved to bottom left to avoid overlapping with favorite button */}
-                <div className="absolute bottom-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                    <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        className="h-7 w-7 bg-background/90 hover:bg-background shadow-sm" 
-                        onClick={(e) => { e.stopPropagation(); setIsEditingDate(true); }} 
-                        aria-label="Edit publication date"
-                        title="Edit date"
-                    >
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground hover:text-blue-500" />
-                    </Button>
-                    <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        className="h-7 w-7 bg-background/90 hover:bg-background shadow-sm" 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(); }} 
-                        aria-label="Remove from library"
-                        title="Delete paper"
-                    >
-                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                </div>
-
-                <div className="flex justify-between items-start gap-4">
-                    <Link href={`/papers/${paper.id}`} className="hover:underline flex-1 pr-8">
-                        <CardTitle className="text-lg font-semibold leading-tight">{paper.title}</CardTitle>
-                    </Link>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={toggleFavorite} 
-                        className={`flex-shrink-0 ${favorite ? "text-yellow-500" : "text-muted-foreground"}`} 
-                        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-                        title={favorite ? "Remove from favorites" : "Add to favorites"}
-                    >
-                        <Star className={`h-5 w-5 ${favorite ? "fill-current" : ""}`} />
-                    </Button>
-                </div>
+        <TooltipProvider>
+            <Card className="flex flex-col group relative overflow-hidden transition-all duration-300 hover:shadow-lg">
+                <CardHeader className="relative">
+                    <div className="flex justify-between items-start gap-4">
+                        <Link href={`/papers/${paper.id}`} className="hover:underline flex-1 pr-24">
+                            <CardTitle className="text-lg font-semibold leading-tight">{paper.title}</CardTitle>
+                        </Link>
+                        
+                        {/* Favorite Button with Quick Actions below */}
+                        <div className="flex flex-col items-center gap-1">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={toggleFavorite} 
+                                className={`flex-shrink-0 ${favorite ? "text-yellow-500" : "text-muted-foreground"}`} 
+                                aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                                title={favorite ? "Remove from favorites" : "Add to favorites"}
+                            >
+                                <Star className={`h-5 w-5 ${favorite ? "fill-current" : ""}`} />
+                            </Button>
+                            
+                            {/* Quick Actions - Below Favorite Button */}
+                            <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <Button 
+                                    variant="secondary" 
+                                    size="icon" 
+                                    className="h-6 w-6 bg-background/90 hover:bg-background shadow-sm" 
+                                    onClick={(e) => { e.stopPropagation(); setIsEditingDate(true); }} 
+                                    aria-label="Edit publication date"
+                                    title="Edit publication date"
+                                >
+                                    <Calendar className="h-3 w-3 text-muted-foreground hover:text-blue-500" />
+                                </Button>
+                                <Button 
+                                    variant="secondary" 
+                                    size="icon" 
+                                    className="h-6 w-6 bg-background/90 hover:bg-background shadow-sm" 
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(); }} 
+                                    aria-label="Remove from library"
+                                    title="Remove from library"
+                                >
+                                    <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 <CardDescription className="flex items-center gap-2 text-xs flex-wrap">
                     <span className="font-medium text-blue-600 dark:text-blue-400">{paper.source}</span>
                     <span>•</span>
@@ -408,18 +419,37 @@ Practicality: ${paper.practicalityScore?.toFixed(1) || 'N/A'}`}
                             Read Original
                         </a>
                     </Button>
-                    <Button variant="ghost" size="icon" className="group/share" onClick={() => {
-                        if (navigator.share) {
-                            navigator.share({ title: paper.title, text: paper.abstract || undefined, url: paper.url })
-                        } else {
-                            navigator.clipboard.writeText(paper.url);
-                            alert("Link copied to clipboard!");
-                        }
-                    }}>
-                        <Share2 className="h-4 w-4 group-hover/share:text-blue-500 transition-colors" />
-                    </Button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="group/share relative" 
+                                onClick={() => {
+                                    if (navigator.share) {
+                                        navigator.share({ title: paper.title, text: paper.abstract || undefined, url: paper.url })
+                                    } else {
+                                        navigator.clipboard.writeText(paper.url);
+                                        alert("Link copied to clipboard!");
+                                    }
+                                }}
+                            >
+                                <Share2 className="h-4 w-4 group-hover/share:text-blue-500 transition-colors" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent 
+                            side="top" 
+                            className="bg-slate-800 text-white border-slate-700 px-3 py-2"
+                        >
+                            <div className="flex flex-col gap-1">
+                                <span className="font-semibold text-sm">Share Paper</span>
+                                <span className="text-xs text-slate-300">Click to copy link for quick sharing</span>
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
             </CardFooter>
         </Card>
+        </TooltipProvider>
     )
 }

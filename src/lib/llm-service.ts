@@ -150,6 +150,54 @@ class GroqProvider extends BaseProvider {
     getProviderName(): string {
         return 'Groq';
     }
+
+    // Static method to fetch available models from Groq API
+    static async fetchAvailableModels(apiKey: string): Promise<Array<{
+        id: string;
+        name: string;
+        contextWindow: number;
+        ownedBy: string;
+        active: boolean;
+    }>> {
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/models', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Groq API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            return data.data?.map((model: any) => ({
+                id: model.id,
+                name: GroqProvider.formatModelName(model.id),
+                contextWindow: model.context_window || 8192,
+                ownedBy: model.owned_by,
+                active: model.active
+            })) || [];
+        } catch (error) {
+            logger.error('Failed to fetch Groq models', { error });
+            return [];
+        }
+    }
+
+    private static formatModelName(modelId: string): string {
+        const nameMap: Record<string, string> = {
+            'llama-3.3-70b-versatile': 'Llama 3.3 70B',
+            'llama-3.1-8b-instant': 'Llama 3.1 8B Instant',
+            'llama3-8b-8192': 'Llama 3 8B',
+            'llama3-70b-8192': 'Llama 3 70B',
+            'mixtral-8x7b-32768': 'Mixtral 8x7B',
+            'gemma2-9b-it': 'Gemma 2 9B',
+        };
+        return nameMap[modelId] || modelId;
+    }
 }
 
 // OpenAI Provider
@@ -861,6 +909,29 @@ export async function ensureLLMInitialized(userId: string = 'system'): Promise<v
         // Fallback to environment variables
         getLLMProvider();
         isLLMInitialized = true;
+    }
+}
+
+/**
+ * Reinitialize LLM providers from database
+ * Forces reload of configuration (useful after model change)
+ */
+export async function reinitializeLLMFromDatabase(userId: string = 'system'): Promise<void> {
+    try {
+        logger.debug('Reinitializing LLM providers from database...');
+        // Clear existing providers
+        globalLLMProviders = [];
+        isLLMInitialized = false;
+        // Reload from database
+        await initializeLLMFromDatabase(userId);
+        isLLMInitialized = true;
+        logger.info(`LLM providers reinitialized: ${globalLLMProviders.length} providers`, {
+            providers: globalLLMProviders.map(p => p.getProviderName()),
+            models: globalLLMProviders.map(p => (p as any).config?.model)
+        });
+    } catch (error) {
+        logger.warn('Failed to reinitialize LLM from database', { error });
+        throw error;
     }
 }
 
