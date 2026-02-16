@@ -17,6 +17,7 @@ import { prisma } from './db';
 import { logger } from './logger';
 import { revalidatePath } from 'next/cache';
 import { triggerCollectionAlerts } from './newsletter';
+import { inferSourceTypeFromName } from './source-type-service';
 
 export type CollectionMode = 'auto' | 'manual' | 'pipeline';
 
@@ -241,11 +242,11 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                 // Process for tags
                 const processed = await processPaper(result);
                 
-                // Merge LLM suggested tags with processor tags
-                const allTags = [
-                    ...processed.suggestedTags,
-                    ...relevance.suggestedTags.map(name => ({ name, type: 'ai' }))
-                ];
+                // Tags from processor (content-filter no longer generates tags)
+                const allTags = processed.suggestedTags;
+                
+                // Get category from matchedCategories for Tag.category
+                const tagCategory = relevance.matchedCategories[0] || 'uncategorized';
                 
                 // Dimension scores are now already in 1-10 range from content-filter
                 const dimScores = relevance.dimensionScores;
@@ -265,6 +266,9 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                 
                 logger.info(`[WEIGHTS] ${result.title.substring(0, 40)}... | Total: ${normalizedTotal.toFixed(2)} | Tech: ${technicalScore}×0.30=${(technicalScore*0.30).toFixed(2)} | Biz: ${businessScore}×0.40=${(businessScore*0.40).toFixed(2)} | Time: ${timelinessScore}×0.10=${(timelinessScore*0.10).toFixed(2)} | Pract: ${practicalityScore}×0.20=${(practicalityScore*0.20).toFixed(2)}`);
                 
+                // Infer sourceType from source name
+                const sourceType = await inferSourceTypeFromName(result.source);
+                
                 // Create paper with relevance scores
                 const paper = await prisma.paper.create({
                     data: {
@@ -272,6 +276,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                         abstract: result.abstract,
                         url: result.url,
                         source: result.source,
+                        sourceType: sourceType,
                         publicationDate: result.publicationDate,
                         collectedAt: new Date(),
                         aiSummary: relevance.reasoning.substring(0, 500),
@@ -293,7 +298,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                             data: { 
                                 name: tag.name, 
                                 type: tag.type,
-                                category: relevance.matchedCategories[0]
+                                category: tagCategory
                             }
                         });
                     }

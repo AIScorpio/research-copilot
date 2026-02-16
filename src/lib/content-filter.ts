@@ -15,7 +15,6 @@ export interface ContentRelevanceResult {
     confidence: number; // 0-1
     reasoning: string;
     matchedCategories: string[];
-    suggestedTags: string[];
     dimensionScores: {
         technical: number; // 1-10
         business: number; // 1-10
@@ -209,8 +208,7 @@ Evaluation Requirements:
 3. Assess timeliness and current relevance
 4. Assess practical applicability in banking
 5. Identify specific application areas (risk, compliance, trading, etc.)
-6. Suggest relevant tags (3-5 tags)
-7. Check against exclusion criteria (physics, pure CS, crypto speculation, medical, gaming)
+6. Check against exclusion criteria (physics, pure CS, crypto speculation, medical, gaming)
 
 IMPORTANT: Return dimension scores as 1-10 (not 0-100). Use the following scale:
 - 1-3: Low relevance/poor quality
@@ -224,7 +222,6 @@ Return a JSON object with this structure:
     "confidence": 0.0-1.0,
     "reasoning": "Brief explanation of the scoring rationale",
     "matchedCategories": ["category1", "category2"],
-    "suggestedTags": ["tag1", "tag2", "tag3"],
     "dimensionScores": {
         "technical": 1-10,
         "business": 1-10,
@@ -326,22 +323,21 @@ function performQuickCheck(
         for (const category of options.excludeCategories) {
             if (content.includes(category.toLowerCase())) {
                 return {
-                    shouldSkip: true,
-                    result: {
-                        isRelevant: false,
-                        relevanceScore: 1,
-                        confidence: 0.9,
-                        reasoning: `Content matches excluded category: ${category}`,
-                        matchedCategories: [],
-                        suggestedTags: [],
-                        dimensionScores: {
-                            technical: 1,
-                            business: 1,
-                            timeliness: 1,
-                            practicality: 1
+                        shouldSkip: true,
+                        result: {
+                            isRelevant: false,
+                            relevanceScore: 1,
+                            confidence: 0.9,
+                            reasoning: `Content matches excluded category: ${category}`,
+                            matchedCategories: [],
+                            dimensionScores: {
+                                technical: 1,
+                                business: 1,
+                                timeliness: 1,
+                                practicality: 1
+                            }
                         }
-                    }
-                };
+                    };
             }
         }
     }
@@ -359,7 +355,6 @@ function performQuickCheck(
                     confidence: 0.7,
                     reasoning: 'No banking keywords detected',
                     matchedCategories: [],
-                    suggestedTags: ['general-ai'],
                     dimensionScores: {
                         technical: 3,
                         business: 2,
@@ -383,14 +378,12 @@ function getFallbackRelevanceResult(
     
     let score = 50; // Base score
     const matchedCategories: string[] = [];
-    const suggestedTags: string[] = [];
     
     // Check banking keywords
     const bankingMatches = BANKING_KEYWORDS.filter(kw => content.includes(kw));
     if (bankingMatches.length > 0) {
         score += 20;
         matchedCategories.push('banking');
-        suggestedTags.push(...bankingMatches.slice(0, 2));
     }
     
     // Check AI keywords
@@ -398,7 +391,6 @@ function getFallbackRelevanceResult(
     if (aiMatches.length > 0) {
         score += 20;
         matchedCategories.push('ai-technology');
-        suggestedTags.push(...aiMatches.slice(0, 2));
     }
     
     // Bonus for both banking and AI
@@ -438,7 +430,6 @@ function getFallbackRelevanceResult(
         confidence: 0.6,
         reasoning: 'Fallback heuristic scoring based on keyword matching',
         matchedCategories: [...new Set(matchedCategories)],
-        suggestedTags: [...new Set(suggestedTags)].slice(0, 5),
         dimensionScores: {
             technical: technicalScore,
             business: businessScore,

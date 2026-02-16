@@ -7,11 +7,12 @@ import { generateJSONWithFallback, isLLMConfigured } from './llm-service';
 import { logger } from './logger';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { normalizeCategory, isValidCategory } from './source-config';
 
 export interface GeneratedTag {
     name: string;
     type: 'Academic' | 'Industrial' | 'User Defined';
-    category?: string;
+    category: string;
 }
 
 export interface TagGenerationResult {
@@ -185,13 +186,14 @@ Return format:
             .map(tag => ({
                 name: tag.name.toLowerCase().replace(/\s+/g, '-'),
                 type: tag.type,
-                category: tag.category
+                category: normalizeCategory(tag.category)
             }));
 
         logger.info('[TagGenerator] Tags generated successfully', {
             title: title.substring(0, 50),
             tagCount: validTags.length,
-            tags: validTags.map(t => t.name)
+            tags: validTags.map(t => t.name),
+            categories: validTags.map(t => t.category)
         });
 
         return {
@@ -213,21 +215,21 @@ function getFallbackTags(title: string, abstract: string): TagGenerationResult {
     const content = `${title} ${abstract}`.toLowerCase();
     const tags: GeneratedTag[] = [];
     
-    // Industrial Categories
+    // Industrial Categories - using normalized categories from source-config
     if (content.includes("compliance") || content.includes("aml") || content.includes("laundering")) {
-        tags.push({ name: "aml-compliance", type: "Industrial", category: "compliance" });
+        tags.push({ name: "aml-compliance", type: "Industrial", category: "regulatory" });
     }
     if (content.includes("risk") || content.includes("credit") || content.includes("default")) {
-        tags.push({ name: "credit-risk", type: "Industrial", category: "risk-management" });
+        tags.push({ name: "credit-risk", type: "Industrial", category: "risk-category" });
     }
     if (content.includes("fraud") || content.includes("detection")) {
-        tags.push({ name: "fraud-detection", type: "Industrial", category: "risk-management" });
+        tags.push({ name: "fraud-detection", type: "Industrial", category: "risk-category" });
     }
     if (content.includes("kyc") || content.includes("cdd") || content.includes("due diligence")) {
-        tags.push({ name: "ekyc-cdd", type: "Industrial", category: "compliance" });
+        tags.push({ name: "ekyc-cdd", type: "Industrial", category: "regulatory" });
     }
     if (content.includes("portfolio") || content.includes("trading") || content.includes("asset")) {
-        tags.push({ name: "portfolio-optimization", type: "Industrial", category: "trading" });
+        tags.push({ name: "portfolio-optimization", type: "Industrial", category: "business-area" });
     }
     
     // Academic Categories
@@ -252,7 +254,8 @@ function getFallbackTags(title: string, abstract: string): TagGenerationResult {
     
     logger.info('[TagGenerator] Fallback tags generated', { 
         tagCount: uniqueTags.length,
-        tags: uniqueTags.map(t => t.name)
+        tags: uniqueTags.map(t => t.name),
+        categories: uniqueTags.map(t => t.category)
     });
     
     return {

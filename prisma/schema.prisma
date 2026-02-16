@@ -69,6 +69,7 @@ model Paper {
   abstract          String?
   url               String          @unique
   source            String
+  sourceType        String?         // Source type inferred from Source.type (Academic, Industry, etc.)
   publicationDate   DateTime
   collectedAt       DateTime        @default(now())
   aiSummary         String?
@@ -90,6 +91,7 @@ model Paper {
   @@index([collectedAt])
   @@index([deletedAt])
   @@index([title])
+  @@index([sourceType])
   @@index([source, publicationDate], map: "Paper_source_date_idx")
 }
 
@@ -101,6 +103,8 @@ model Tag {
   papers    PaperTag[]
   trendData TrendData[]
   userTags  UserTag[]
+
+  @@index([category])
 }
 
 model PaperTag {
@@ -138,7 +142,8 @@ model UserTag {
 model Source {
   id                String             @id @default(uuid())
   name              String             @unique
-  url               String
+  displayName       String?
+  url               String?
   type              String             @default("academic")
   enabled           Boolean            @default(true)
   requiresAuth      Boolean            @default(false)
@@ -147,6 +152,7 @@ model Source {
   socialCredentials SocialCredential[]
 
   @@index([type])
+  @@index([enabled])
 }
 
 model SocialCredential {

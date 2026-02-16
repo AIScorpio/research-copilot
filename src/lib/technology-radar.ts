@@ -74,8 +74,21 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
     ] = await Promise.all([
         // Current period papers (user selected)
         prisma.paper.findMany({
-            where: { publicationDate: { gte: currentPeriodStart } },
-            include: { tags: { include: { tag: true } } },
+            where: { 
+                publicationDate: { gte: currentPeriodStart },
+                deletedAt: null
+            },
+            include: { 
+                tags: { 
+                    include: { tag: true },
+                    where: { 
+                        OR: [
+                            { tag: { category: 'ai-technology' } },
+                            { tag: { category: null } }
+                        ]
+                    }
+                } 
+            },
             orderBy: { publicationDate: 'desc' }
         }),
         // Previous period papers (for trend comparison)
@@ -84,14 +97,38 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
                 publicationDate: { 
                     gte: previousPeriodStart,
                     lt: currentPeriodStart 
-                } 
+                },
+                deletedAt: null
             },
-            include: { tags: { include: { tag: true } } }
+            include: { 
+                tags: { 
+                    include: { tag: true },
+                    where: { 
+                        OR: [
+                            { tag: { category: 'ai-technology' } },
+                            { tag: { category: null } }
+                        ]
+                    }
+                } 
+            }
         }),
         // Last week papers
         prisma.paper.findMany({
-            where: { publicationDate: { gte: lastWeekStart } },
-            include: { tags: { include: { tag: true } } }
+            where: { 
+                publicationDate: { gte: lastWeekStart },
+                deletedAt: null
+            },
+            include: { 
+                tags: { 
+                    include: { tag: true },
+                    where: { 
+                        OR: [
+                            { tag: { category: 'ai-technology' } },
+                            { tag: { category: null } }
+                        ]
+                    }
+                } 
+            }
         }),
         // Previous week papers
         prisma.paper.findMany({
@@ -99,13 +136,35 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
                 publicationDate: { 
                     gte: previousWeekStart,
                     lt: lastWeekStart 
-                } 
+                },
+                deletedAt: null
             },
-            include: { tags: { include: { tag: true } } }
+            include: { 
+                tags: { 
+                    include: { tag: true },
+                    where: { 
+                        OR: [
+                            { tag: { category: 'ai-technology' } },
+                            { tag: { category: null } }
+                        ]
+                    }
+                } 
+            }
         }),
         // All historical papers for "NEW" detection
         prisma.paper.findMany({
-            include: { tags: { include: { tag: true } } }
+            where: { deletedAt: null },
+            include: { 
+                tags: { 
+                    include: { tag: true },
+                    where: { 
+                        OR: [
+                            { tag: { category: 'ai-technology' } },
+                            { tag: { category: null } }
+                        ]
+                    }
+                } 
+            }
         })
     ]);
 

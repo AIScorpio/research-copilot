@@ -1,0 +1,117 @@
+{
+  "sourceTypes": [
+    {
+      "id": "academic",
+      "displayName": "Academic",
+      "icon": "GraduationCap",
+      "description": "Academic research papers and publications",
+      "sortOrder": 1,
+      "allowUserAdd": true,
+      "systemSources": [
+        {
+          "name": "arxiv",
+          "displayName": "ArXiv",
+          "description": "Open-access archive for scholarly articles",
+          "enabled": true,
+          "hasCollector": true
+        },
+        {
+          "name": "semantic-scholar",
+          "displayName": "Google Scholar",
+          "description": "Academic search engine",
+          "enabled": true,
+          "hasCollector": true
+        },
+        {
+          "name": "ssrn",
+          "displayName": "SSRN",
+          "description": "Social Science Research Network",
+          "enabled": true,
+          "hasCollector": true
+        },
+        {
+          "name": "ieee",
+          "displayName": "IEEE Xplore",
+          "description": "IEEE digital library (via Semantic Scholar)",
+          "enabled": true,
+          "hasCollector": "proxy"
+        },
+        {
+          "name": "acm",
+          "displayName": "ACM Digital Library",
+          "description": "ACM digital library (via Semantic Scholar)",
+          "enabled": true,
+          "hasCollector": "proxy"
+        }
+      ]
+    },
+    {
+      "id": "industry",
+      "displayName": "Industry",
+      "icon": "Building2",
+      "description": "Industry reports and business publications",
+      "sortOrder": 2,
+      "allowUserAdd": true,
+      "systemSources": []
+    },
+    {
+      "id": "social",
+      "displayName": "Social Media",
+      "icon": "Share2",
+      "description": "Social media platforms and forums",
+      "sortOrder": 3,
+      "allowUserAdd": true,
+      "systemSources": []
+    },
+    {
+      "id": "regulatory",
+      "displayName": "Regulatory",
+      "icon": "Scale",
+      "description": "Regulatory announcements and compliance documents",
+      "sortOrder": 4,
+      "allowUserAdd": true,
+      "systemSources": []
+    },
+    {
+      "id": "internal",
+      "displayName": "Internal",
+      "icon": "FileText",
+      "description": "Internal reports and documents",
+      "sortOrder": 5,
+      "allowUserAdd": true,
+      "systemSources": []
+    }
+  ],
+  "tagCategories": [
+    {
+      "id": "ai-technology",
+      "displayName": "AI Technology",
+      "description": "AI and machine learning technologies",
+      "examples": ["LLM", "GNN", "Transformer", "RAG", "Deep Learning"]
+    },
+    {
+      "id": "business-area",
+      "displayName": "Business Area",
+      "description": "Banking business domains",
+      "examples": ["Fraud Detection", "Credit Assessment", "Compliance"]
+    },
+    {
+      "id": "risk-category",
+      "displayName": "Risk Category",
+      "description": "Risk management categories",
+      "examples": ["Credit Risk", "AML Risk", "Market Risk"]
+    },
+    {
+      "id": "regulatory",
+      "displayName": "Regulatory",
+      "description": "Regulatory frameworks",
+      "examples": ["Basel III", "IFRS 9", "GDPR"]
+    },
+    {
+      "id": "methodology",
+      "displayName": "Methodology",
+      "description": "Research methodologies",
+      "examples": ["Supervised Learning", "Transfer Learning", "Fine-tuning"]
+    }
+  ]
+}
