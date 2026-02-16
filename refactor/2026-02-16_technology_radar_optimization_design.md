@@ -1,10 +1,10 @@
 # Technology Radar 优化设计文档
 
-**版本**: v2.2  
+**版本**: v2.4  
 **日期**: 2026-02-16  
 **作者**: InsightFlow Development Team  
 **状态**: 待 Review  
-**更新**: 添加阶段1双重对比方案、三阶段演进策略与一致性架构
+**更新**: Phase 2 完整收敛设计 - 配置驱动架构、数据库Schema、Prompt变更、实施计划
 
 ---
 
@@ -582,53 +582,488 @@ Side Panel (Slide-out) [NEW] ✅ 已完成
 #### 目标
 用LLM全面替代硬编码逻辑，实现智能技术提取和分类。
 
-#### LLM技术提取Prompt
+---
+
+#### 3.3.1 设计目标
+
+| 目标 | 说明 |
+|------|------|
+| **职责分离** | content-filter 专注评估，tag-generator 专注分类 |
+| **配置驱动** | source-types.json 作为分类体系的唯一数据源 |
+| **Schema 最小变更** | 只添加必要字段，不破坏现有结构 |
+| **向后兼容** | 历史数据保持可用，平滑迁移 |
+| **可扩展** | 用户可添加自定义 sources |
+
+---
+
+#### 3.3.2 核心概念定义
+
 ```
-请分析以下论文，识别涉及的AI技术：
+sourceType (内容来源分类):
+├── Academic - 学术研究 (ArXiv, SSRN, Google Scholar, IEEE, ACM)
+├── Industry - 行业报告 (WSJ, Bloomberg, 咨询公司报告)
+├── Social Media - 社交媒体 (Twitter/X, Reddit, LinkedIn)
+├── Regulatory - 监管文件 (BIS, EBA, SEC公告)
+└── Internal - 内部文档 (研究报告, 用户自定义)
 
-论文信息:
-- 标题: {title}
-- 摘要: {abstract}
-- 标签: {tags}
+category (内容主题分类):
+├── ai-technology - AI技术 (LLM, GNN, Transformer, RAG...)
+├── business-area - 业务领域 (fraud-detection, credit-assessment...)
+├── risk-category - 风险类别 (credit-risk, aml-risk...)
+├── regulatory - 监管框架 (basel-iii, ifrs-9...)
+└── methodology - 研究方法 (supervised-learning, fine-tuning...)
+```
 
-要求输出JSON格式:
-{
-  "technologies": [{
-    "name": "技术全称",
-    "abbreviation": "缩写",
-    "category": "类别（NLP/CV/Agent等）",
-    "maturity": 1-10,
-    "bankingRelevance": 1-10,
-    "reason": "判断理由"
-  }]
+---
+
+#### 3.3.3 架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        架构分层                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  配置层: config/source-types.json                               │
+│     ↓                                                           │
+│  展示层: Settings (SourceManager UI - 可折叠分类)               │
+│     ↓                                                           │
+│  数据层: Source + Paper + Tag + PaperTag                        │
+│     ↓                                                           │
+│  业务层: collection-service + content-filter + tag-generator    │
+│     ↓                                                           │
+│  应用层: Tech Radar + Dashboard + Library                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 3.3.4 数据库 Schema
+
+```prisma
+// ============================================
+// Source 表（无变更）
+// ============================================
+model Source {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  displayName  String?
+  url          String?
+  type         String   @default("academic")
+  enabled      Boolean  @default(true)
+  requiresAuth Boolean  @default(false)
+  authConfig   String?
+  createdAt    DateTime @default(now())
+
+  @@index([type])
+  @@index([enabled])
+}
+
+// ============================================
+// Paper 表（+1 字段 + 1 索引）
+// ============================================
+model Paper {
+  id                String      @id @default(uuid())
+  title             String
+  abstract          String?
+  url               String      @unique
+  source            String
+  sourceType        String?     // NEW: 从 Source.type 推断
+  publicationDate   DateTime
+  collectedAt       DateTime    @default(now())
+  relevanceScore    Float?
+  technicalScore    Float?
+  businessScore     Float?
+  timelinessScore   Float?
+  practicalityScore Float?
+  assessmentReason  String?
+  aiSummary         String?
+  deletedAt         DateTime?
+  
+  tags              PaperTag[]
+  
+  @@index([sourceType])         // NEW
+  @@index([publicationDate])
+  @@index([source])
+  @@index([collectedAt])
+}
+
+// ============================================
+// Tag 表（+1 索引）
+// ============================================
+model Tag {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  type      String      // 保留兼容，不再使用
+  category  String?     // ai-technology | business-area | ...
+  
+  papers    PaperTag[]
+  
+  @@index([category])           // NEW
+}
+
+// ============================================
+// PaperTag 中间表（无变更）
+// ============================================
+model PaperTag {
+  paperId String
+  tagId   String
+  
+  paper   Paper  @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([paperId, tagId])
+  @@index([paperId])
+  @@index([tagId])
 }
 ```
 
-#### LLM象限分类Prompt
-```
-基于以下信息，判断该技术应该放在哪个象限：
+**变更总结：**
+- Source 表：**无变更**
+- Paper 表：+1 字段 (sourceType) + 1 索引
+- Tag 表：+1 索引 (category)
+- PaperTag 表：**无变更**
 
-技术信息:
-- 名称: {techName}
-- 论文数量: {paperCount}篇
-- 平均相关性: {avgRelevance}/10
-- 商业价值: {avgBusiness}/10
-- 实用性: {avgPracticality}/10
+---
 
-象限定义:
-- ADOPT: 已生产验证，建议采用
-- TRIAL: 适合试点
-- ASSESS: 值得研究
-- HOLD: 暂不关注
+#### 3.3.5 配置文件设计
 
-输出:
+```json
+// config/source-types.json
 {
-  "quadrant": "adopt|trial|assess|hold",
-  "confidence": 0-1,
-  "reasoning": "判断理由",
-  "recommendation": "行动建议"
+  "sourceTypes": [
+    {
+      "id": "academic",
+      "displayName": "Academic",
+      "icon": "GraduationCap",
+      "description": "Academic research papers and publications",
+      "sortOrder": 1,
+      "allowUserAdd": true,
+      "systemSources": [
+        {
+          "name": "arxiv",
+          "displayName": "ArXiv",
+          "description": "Open-access archive for scholarly articles",
+          "enabled": true,
+          "hasCollector": true
+        },
+        {
+          "name": "semantic-scholar",
+          "displayName": "Google Scholar",
+          "description": "Academic search engine",
+          "enabled": true,
+          "hasCollector": true
+        },
+        {
+          "name": "ssrn",
+          "displayName": "SSRN",
+          "description": "Social Science Research Network",
+          "enabled": true,
+          "hasCollector": true
+        },
+        {
+          "name": "ieee",
+          "displayName": "IEEE Xplore",
+          "description": "IEEE digital library (via Semantic Scholar)",
+          "enabled": true,
+          "hasCollector": "proxy"
+        },
+        {
+          "name": "acm",
+          "displayName": "ACM Digital Library",
+          "description": "ACM digital library (via Semantic Scholar)",
+          "enabled": true,
+          "hasCollector": "proxy"
+        }
+      ]
+    },
+    {
+      "id": "industry",
+      "displayName": "Industry",
+      "icon": "Building2",
+      "description": "Industry reports and business publications",
+      "sortOrder": 2,
+      "allowUserAdd": true,
+      "systemSources": []
+    },
+    {
+      "id": "social",
+      "displayName": "Social Media",
+      "icon": "Share2",
+      "description": "Social media platforms and forums",
+      "sortOrder": 3,
+      "allowUserAdd": true,
+      "systemSources": []
+    },
+    {
+      "id": "regulatory",
+      "displayName": "Regulatory",
+      "icon": "Scale",
+      "description": "Regulatory announcements and compliance documents",
+      "sortOrder": 4,
+      "allowUserAdd": true,
+      "systemSources": []
+    },
+    {
+      "id": "internal",
+      "displayName": "Internal",
+      "icon": "FileText",
+      "description": "Internal reports and documents",
+      "sortOrder": 5,
+      "allowUserAdd": true,
+      "systemSources": []
+    }
+  ]
 }
 ```
+
+---
+
+#### 3.3.6 Settings UI 变更
+
+**Source Manager 重构为可折叠分类结构：**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Manage Sources                                              │
+├─────────────────────────────────────────────────────────────┤
+│ ▼ Academic                              5 enabled     [▼]   │
+│   ┌─────────────────────────────────────────────────────┐  │
+│   │ ☑ ArXiv                    Open-access archive     │  │
+│   │ ☑ Google Scholar           Academic search engine  │  │
+│   │ ☑ SSRN                     Research network        │  │
+│   │ ☑ IEEE Xplore              Digital library         │  │
+│   │ ☑ ACM Digital Library      Digital library         │  │
+│   │ [+ Add Custom Academic Source]                     │  │
+│   └─────────────────────────────────────────────────────┘  │
+│                                                             │
+│ ▶ Industry                              0 enabled     [▶]   │
+│ ▶ Social Media                          0 enabled     [▶]   │
+│ ▶ Regulatory                            0 enabled     [▶]   │
+│ ▶ Internal                              0 enabled     [▶]   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 3.3.7 Prompt Management 变更
+
+**变更1: content-filter.ts 简化**
+
+移除 `suggestedTags` 输出，专注四维评分：
+
+```typescript
+// 修改前
+export interface ContentRelevanceResult {
+    isRelevant: boolean;
+    relevanceScore: number;
+    confidence: number;
+    reasoning: string;
+    matchedCategories: string[];
+    suggestedTags: string[];  // ← 移除
+    dimensionScores: {...};
+}
+
+// 修改后
+export interface ContentRelevanceResult {
+    isRelevant: boolean;
+    relevanceScore: number;
+    confidence: number;
+    reasoning: string;
+    matchedCategories: string[];
+    // suggestedTags 移除
+    dimensionScores: {...};
+}
+```
+
+**变更2: tag-generator.ts 增强**
+
+只输出 `category`，移除 `type`，添加验证：
+
+```typescript
+// 修改前
+export interface GeneratedTag {
+    name: string;
+    type: 'Academic' | 'Industrial' | 'User Defined';
+    category?: string;
+}
+
+// 修改后
+export interface GeneratedTag {
+    name: string;
+    category: 'ai-technology' | 'business-area' | 'risk-category' | 'regulatory' | 'methodology';
+}
+
+// 添加 category 验证和映射
+function normalizeCategory(category: string): string {
+  const ALLOWED = ['ai-technology', 'business-area', 'risk-category', 'regulatory', 'methodology'];
+  const ALIASES = {
+    'ai-tech': 'ai-technology',
+    'emerging-technology': 'ai-technology',
+    'business': 'business-area',
+    'risk': 'risk-category',
+  };
+  
+  const normalized = category?.toLowerCase().trim();
+  return ALLOWED.includes(normalized) ? normalized : (ALIASES[normalized] || 'uncategorized');
+}
+```
+
+**变更3: tagSuggestion Prompt 更新**
+
+添加强制 category 约束：
+
+```
+## Category Taxonomy (STRICT - Use these exact values)
+- ai-technology: AI and ML technologies
+- business-area: Banking business domains
+- risk-category: Risk management categories
+- regulatory: Regulatory frameworks
+- methodology: Research methodologies
+
+IMPORTANT: You MUST output one of these exact category values.
+
+## Output Format
+[
+  {"name": "fraud-detection", "category": "business-area"},
+  {"name": "deep-learning", "category": "ai-technology"}
+]
+```
+
+---
+
+#### 3.3.8 端到端数据流
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     论文入库流程                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Step 1: 收集                                                   │
+│  ├── 从 enabled 的 Sources 收集论文                             │
+│  ├── Paper.source = "arxiv"                                     │
+│  └── Paper.sourceType = infer("arxiv") = "Academic"             │
+│                                                                 │
+│  Step 2: 评估 (content-filter.ts)                               │
+│  ├── 四维评分: technical/business/timeliness/practicality       │
+│  ├── 加权计算: Tech×0.3 + Biz×0.4 + Time×0.1 + Pract×0.2        │
+│  ├── 过滤决策: isRelevant = (score >= 5)                        │
+│  └── 输出: dimensionScores + isRelevant + reasoning             │
+│         ↓ [isRelevant = true]                                   │
+│                                                                 │
+│  Step 3: 标签生成 (tag-generator.ts)                            │
+│  ├── 输入: title + abstract                                     │
+│  ├── 输出: { name, category }                                   │
+│  └── 验证: category 必须是预定义值                              │
+│                                                                 │
+│  Step 4: 存储 (collection-service.ts)                           │
+│  ├── Paper 表: source + sourceType + 四维分数                   │
+│  ├── Tag 表: name + category                                    │
+│  └── PaperTag 表: 关联                                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                     数据使用                                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Tech Radar:                                                    │
+│  └── 查询 Tag.category = 'ai-technology'                        │
+│                                                                 │
+│  Dashboard:                                                     │
+│  ├── Trending Topics: Tag.category = 'ai-technology' (Top 10)   │
+│  ├── By Source Type: Paper.sourceType groupBy                   │
+│  └── 可点击跳转 Tech Radar                                       │
+│                                                                 │
+│  Library:                                                       │
+│  ├── 按来源筛选: Paper.sourceType                               │
+│  └── 按主题筛选: Tag.category                                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 3.3.9 代码变更清单
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `config/source-types.json` | 新增 | Source types 配置文件 |
+| `prisma/schema.prisma` | 修改 | Paper +sourceType, Tag +category索引 |
+| `prisma/seed-sources.ts` | 新增 | 初始化系统 sources |
+| `lib/source-config.ts` | 新增 | 配置加载服务 |
+| `lib/source-type-service.ts` | 新增 | sourceType 推断服务 |
+| `components/settings/source-manager.tsx` | 重构 | 可折叠分类 UI |
+| `app/api/source-types/route.ts` | 新增 | 获取 source types API |
+| `lib/collection-service.ts` | 修改 | 保存 sourceType |
+| `lib/content-filter.ts` | 修改 | 移除 suggestedTags 输出 |
+| `lib/tag-generator.ts` | 修改 | 只输出 category，添加验证 |
+| `lib/technology-radar.ts` | 修改 | 使用 Tag.category 查询 |
+
+---
+
+#### 3.3.10 历史数据处理
+
+```typescript
+// 迁移脚本
+async function migrateHistoricalData() {
+  // 1. 更新 Paper.sourceType
+  const papers = await prisma.paper.findMany({
+    where: { sourceType: null }
+  });
+  
+  for (const paper of papers) {
+    const source = await prisma.source.findFirst({
+      where: { name: paper.source }
+    });
+    
+    if (source) {
+      await prisma.paper.update({
+        where: { id: paper.id },
+        data: { sourceType: getDisplayName(source.type) }
+      });
+    }
+  }
+  
+  // 2. Tag.category 保持不变（已有数据）
+  // 新数据会自动填充 category
+}
+```
+
+---
+
+#### 3.3.11 性能影响
+
+| 操作 | 影响 | 说明 |
+|------|------|------|
+| Paper 写入 | 🟢 几乎无 | +1 字段 |
+| Tag 写入 | 🟢 减少 | 移除 type |
+| Tech Radar 查询 | 🟢 更快 | category 索引 |
+| Dashboard 查询 | 🟢 更快 | sourceType 索引 |
+
+---
+
+#### 3.3.12 实施计划 (Todo Tasks)
+
+| 序号 | 任务 | 优先级 | 状态 |
+|------|------|--------|------|
+| 2.1 | Create config/source-types.json with source type definitions | High | Pending |
+| 2.2 | Update prisma/schema.prisma - add Paper.sourceType field and indexes | High | Pending |
+| 2.3 | Create prisma/seed-sources.ts for initializing system sources | High | Pending |
+| 2.4 | Create lib/source-config.ts for loading source types config | High | Pending |
+| 2.5 | Create lib/source-type-service.ts for inferring sourceType | High | Pending |
+| 2.6 | Refactor components/settings/source-manager.tsx with collapsible UI | High | Pending |
+| 2.7 | Create app/api/source-types/route.ts API endpoint | Medium | Pending |
+| 2.8 | Modify lib/collection-service.ts to save sourceType | High | Pending |
+| 2.9 | Modify lib/content-filter.ts - remove suggestedTags output | Medium | Pending |
+| 2.10 | Modify lib/tag-generator.ts - output only category, add validation | High | Pending |
+| 2.11 | Modify lib/technology-radar.ts to use Tag.category query | High | Pending |
+| 2.12 | Run database migration and seed system sources | High | Pending |
+| 2.13 | Migrate historical Paper data - populate sourceType | Medium | Pending |
+| 2.14 | End-to-end testing - verify collection, Tech Radar, Dashboard | High | Pending |
+| 2.15 | Update Tech Radar design document with Phase 2 implementation details | Low | Pending |
+
+**预计工时：1-1.5 天**
 
 ---
 
@@ -1086,6 +1521,7 @@ model TechRelation {
 **文档结束**
 
 **更新记录**:
+- v2.4 (2026-02-16): Phase 2 完整收敛设计 - 添加配置驱动架构、数据库Schema、Prompt变更、15个实施任务
 - v2.3 (2026-02-16): Phase 1完成 - 添加侧边论文列表面板功能，标注所有Phase 1功能为已完成状态
 - v2.2 (2026-02-16): 添加阶段1双重对比方案、三阶段演进策略与一致性架构（新增第4章）
 - v2.1 (2026-02-16): 修复Mermaid图表语法，移除有问题的<br/>标签
