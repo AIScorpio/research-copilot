@@ -134,16 +134,23 @@ export default function SourceManager() {
         }
     };
 
-    // Get sources for a specific type
-    const getSourcesForType = (typeId: string): Source[] => {
-        return dbSources.filter(s => s.type === typeId);
+    // Get custom (user-added) sources for a specific type (excludes system sources)
+    const getCustomSourcesForType = (typeId: string, systemSources: SystemSource[]): Source[] => {
+        const systemSourceNames = new Set(systemSources.map(s => s.name.toLowerCase()));
+        return dbSources.filter(s => 
+            s.type === typeId && 
+            !systemSourceNames.has(s.name.toLowerCase())
+        );
     };
 
-    // Get enabled count for a type (system + user)
+    // Get enabled count for a type (system from config + custom from DB)
     const getEnabledCount = (typeId: string, systemSources: SystemSource[]): number => {
-        const enabledSystem = systemSources.filter(s => s.enabled).length;
-        const enabledUser = getSourcesForType(typeId).filter(s => s.enabled).length;
-        return enabledSystem + enabledUser;
+        const enabledSystem = systemSources.filter(s => {
+            const dbSource = dbSources.find(d => d.name.toLowerCase() === s.name.toLowerCase());
+            return dbSource?.enabled ?? s.enabled;
+        }).length;
+        const enabledCustom = getCustomSourcesForType(typeId, systemSources).filter(s => s.enabled).length;
+        return enabledSystem + enabledCustom;
     };
 
     return (
@@ -154,7 +161,7 @@ export default function SourceManager() {
                 {sourceTypes.map(sourceType => {
                     const isExpanded = expandedTypes.includes(sourceType.id);
                     const enabledCount = getEnabledCount(sourceType.id, sourceType.systemSources);
-                    const userSources = getSourcesForType(sourceType.id);
+                    const customSources = getCustomSourcesForType(sourceType.id, sourceType.systemSources);
                     
                     return (
                         <div key={sourceType.id} className="border rounded-lg">
@@ -226,13 +233,13 @@ export default function SourceManager() {
                                         </div>
                                     )}
 
-                                    {/* User Added Sources */}
-                                    {userSources.length > 0 && (
+                                    {/* Custom Sources (User Added) */}
+                                    {customSources.length > 0 && (
                                         <div className="space-y-1">
                                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-2">
                                                 Custom Sources
                                             </p>
-                                            {userSources.map(source => (
+                                            {customSources.map((source: Source) => (
                                                 <div 
                                                     key={source.id}
                                                     className="flex items-center justify-between p-3 bg-muted/30 rounded"
@@ -327,7 +334,7 @@ export default function SourceManager() {
                                     )}
 
                                     {/* Empty state */}
-                                    {sourceType.systemSources.length === 0 && userSources.length === 0 && (
+                                    {sourceType.systemSources.length === 0 && customSources.length === 0 && (
                                         <p className="text-sm text-muted-foreground py-2">
                                             No sources configured for this category.
                                         </p>
