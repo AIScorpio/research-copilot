@@ -242,11 +242,8 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                 // Process for tags
                 const processed = await processPaper(result);
                 
-                // Tags from processor (content-filter no longer generates tags)
+                // Tags from processor (now includes category from LLM)
                 const allTags = processed.suggestedTags;
-                
-                // Get category from matchedCategories for Tag.category
-                const tagCategory = relevance.matchedCategories[0] || 'uncategorized';
                 
                 // Dimension scores are now already in 1-10 range from content-filter
                 const dimScores = relevance.dimensionScores;
@@ -298,7 +295,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                             data: { 
                                 name: tag.name, 
                                 type: tag.type,
-                                category: tagCategory
+                                category: tag.category || 'uncategorized'
                             }
                         });
                     }

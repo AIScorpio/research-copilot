@@ -2,8 +2,14 @@ import { SearchResult } from './collector';
 import { generateTagsWithLLM } from './tag-generator';
 import { logger } from './logger';
 
+export interface ProcessedTag {
+    name: string;
+    type: 'Academic' | 'Industrial';
+    category: string;
+}
+
 export interface ProcessedPaper extends SearchResult {
-    suggestedTags: { name: string; type: 'Academic' | 'Industrial' }[];
+    suggestedTags: ProcessedTag[];
 }
 
 export async function processPaper(paper: SearchResult): Promise<ProcessedPaper> {
@@ -17,6 +23,7 @@ export async function processPaper(paper: SearchResult): Promise<ProcessedPaper>
             title: paper.title.substring(0, 50),
             tagCount: tagResult.tags.length,
             tags: tagResult.tags.map(t => t.name),
+            categories: tagResult.tags.map(t => t.category),
             source: tagResult.reasoning.includes('LLM') ? 'LLM' : 'fallback'
         });
         
@@ -24,7 +31,8 @@ export async function processPaper(paper: SearchResult): Promise<ProcessedPaper>
             ...paper,
             suggestedTags: tagResult.tags.map(tag => ({
                 name: tag.name,
-                type: tag.type as 'Academic' | 'Industrial'
+                type: tag.type as 'Academic' | 'Industrial',
+                category: tag.category
             })),
         };
     } catch (error) {

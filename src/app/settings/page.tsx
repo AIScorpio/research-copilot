@@ -19,12 +19,6 @@ import {
 import SourceManager from '@/components/settings/source-manager';
 import NotificationSettings from '@/components/settings/notification-settings';
 import { LLMProviderManager } from '@/components/settings/llm-provider-manager';
-import {
-    DEFAULT_QUERY_OPTIMIZATION_PROMPT,
-    DEFAULT_CONTENT_ASSESSMENT_PROMPT,
-    DEFAULT_SUMMARY_GENERATION_PROMPT,
-    DEFAULT_TAG_SUGGESTION_PROMPT
-} from '@/lib/prompt-templates';
 
 interface PromptTemplates {
     queryOptimization: string;
@@ -35,14 +29,33 @@ interface PromptTemplates {
 
 export default function SettingsPage() {
     const [prompts, setPrompts] = useState<PromptTemplates>({
-        queryOptimization: DEFAULT_QUERY_OPTIMIZATION_PROMPT,
-        contentAssessment: DEFAULT_CONTENT_ASSESSMENT_PROMPT,
-        summaryGeneration: DEFAULT_SUMMARY_GENERATION_PROMPT,
-        tagSuggestion: DEFAULT_TAG_SUGGESTION_PROMPT
+        queryOptimization: '',
+        contentAssessment: '',
+        summaryGeneration: '',
+        tagSuggestion: ''
     });
+    const [isLoadingPrompts, setIsLoadingPrompts] = useState(true);
     const [activePromptTab, setActivePromptTab] = useState<'query' | 'assessment' | 'summary' | 'tags'>('query');
     const [isSavingPrompts, setIsSavingPrompts] = useState(false);
     const [promptMessage, setPromptMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    // Load prompts from API on mount
+    useEffect(() => {
+        const loadPrompts = async () => {
+            try {
+                const response = await fetch('/api/settings/prompts');
+                const data = await response.json();
+                if (data.success && data.prompts) {
+                    setPrompts(data.prompts);
+                }
+            } catch (error) {
+                console.error('Failed to load prompts:', error);
+            } finally {
+                setIsLoadingPrompts(false);
+            }
+        };
+        loadPrompts();
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -123,22 +136,21 @@ export default function SettingsPage() {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                    setPrompts(prev => ({
-                                        ...prev,
-                                        [activePromptTab === 'query' ? 'queryOptimization' :
-                                         activePromptTab === 'assessment' ? 'contentAssessment' :
-                                         activePromptTab === 'summary' ? 'summaryGeneration' : 'tagSuggestion']:
-                                            activePromptTab === 'query' ? DEFAULT_QUERY_OPTIMIZATION_PROMPT :
-                                            activePromptTab === 'assessment' ? DEFAULT_CONTENT_ASSESSMENT_PROMPT :
-                                            activePromptTab === 'summary' ? DEFAULT_SUMMARY_GENERATION_PROMPT :
-                                            DEFAULT_TAG_SUGGESTION_PROMPT
-                                    }));
-                                    setPromptMessage({ type: 'success', text: 'Reset to default' });
+                                onClick={async () => {
+                                    try {
+                                        const response = await fetch('/api/settings/prompts');
+                                        const data = await response.json();
+                                        if (data.success && data.prompts) {
+                                            setPrompts(data.prompts);
+                                            setPromptMessage({ type: 'success', text: 'Reset to saved prompts' });
+                                        }
+                                    } catch (error) {
+                                        setPromptMessage({ type: 'error', text: 'Failed to reset prompts' });
+                                    }
                                 }}
                             >
                                 <RotateCcw className="h-3 w-3 mr-1" />
-                                Reset to Default
+                                Reset to Saved
                             </Button>
                         </div>
                         <textarea

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { writeFile, readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
+
+const PROMPTS_PATH = join(process.cwd(), 'config', 'prompts.json');
 
 export async function POST(request: Request) {
     try {
@@ -17,9 +20,8 @@ export async function POST(request: Request) {
             }
         }
         
-        // Save prompts to a JSON file
-        const promptsPath = join(process.cwd(), 'config', 'prompts.json');
-        await writeFile(promptsPath, JSON.stringify(prompts, null, 2), 'utf-8');
+        // Save prompts to config/prompts.json
+        await writeFile(PROMPTS_PATH, JSON.stringify(prompts, null, 2), 'utf-8');
         
         return NextResponse.json({ 
             success: true, 
@@ -36,31 +38,14 @@ export async function POST(request: Request) {
 
 export async function GET() {
     try {
-        const { readFile } = await import('fs/promises');
-        const { existsSync } = await import('fs');
-        const promptsPath = join(process.cwd(), 'config', 'prompts.json');
-        
-        if (!existsSync(promptsPath)) {
-            // Return default prompts if file doesn't exist
-            const { 
-                DEFAULT_QUERY_OPTIMIZATION_PROMPT,
-                DEFAULT_CONTENT_ASSESSMENT_PROMPT,
-                DEFAULT_SUMMARY_GENERATION_PROMPT,
-                DEFAULT_TAG_SUGGESTION_PROMPT
-            } = await import('@/lib/prompt-templates');
-            
-            return NextResponse.json({
-                success: true,
-                prompts: {
-                    queryOptimization: DEFAULT_QUERY_OPTIMIZATION_PROMPT,
-                    contentAssessment: DEFAULT_CONTENT_ASSESSMENT_PROMPT,
-                    summaryGeneration: DEFAULT_SUMMARY_GENERATION_PROMPT,
-                    tagSuggestion: DEFAULT_TAG_SUGGESTION_PROMPT
-                }
-            });
+        if (!existsSync(PROMPTS_PATH)) {
+            return NextResponse.json(
+                { success: false, message: 'Prompts config file not found' },
+                { status: 500 }
+            );
         }
         
-        const data = await readFile(promptsPath, 'utf-8');
+        const data = await readFile(PROMPTS_PATH, 'utf-8');
         const prompts = JSON.parse(data);
         
         return NextResponse.json({ success: true, prompts });

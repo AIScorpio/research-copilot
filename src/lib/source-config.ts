@@ -123,18 +123,49 @@ export function normalizeCategory(category: string | undefined): string {
   const normalized = category.toLowerCase().trim();
   
   const CATEGORY_ALIASES: Record<string, string> = {
+    // AI Technology aliases
     'ai-tech': 'ai-technology',
     'ai technology': 'ai-technology',
     'emerging-technology': 'ai-technology',
     'ai': 'ai-technology',
+    'technology': 'ai-technology',
+    'machine learning': 'ai-technology',
+    'deep learning': 'ai-technology',
+    'nlp': 'ai-technology',
+    
+    // Business Area aliases
     'business': 'business-area',
     'business domain': 'business-area',
+    'banking': 'business-area',
+    'finance': 'business-area',
+    'financial': 'business-area',
+    'financial services': 'business-area',
+    'trading': 'business-area',
+    
+    // Risk Category aliases
     'risk': 'risk-category',
     'risk management': 'risk-category',
+    'risk-management': 'risk-category',
+    'credit risk': 'risk-category',
+    'fraud': 'risk-category',
+    'cybersecurity': 'risk-category',
+    'cyber risk': 'risk-category',
+    'cyber-risk': 'risk-category',
+    'aml': 'risk-category',
+    'anti-money laundering': 'risk-category',
+    
+    // Regulatory aliases
     'reg': 'regulatory',
+    'regulatory': 'regulatory',
     'compliance': 'regulatory',
+    'regulatory compliance': 'regulatory',
+    
+    // Methodology aliases
     'method': 'methodology',
     'methods': 'methodology',
+    'research method': 'methodology',
+    'education': 'methodology',
+    'modeling': 'methodology',
   };
   
   if (isValidCategory(normalized)) {

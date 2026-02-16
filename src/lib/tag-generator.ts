@@ -1,13 +1,13 @@
 /**
- * Tag Generator - Uses LLM to generate tags based on settings prompt
- * Replaces hardcoded rules in processor.ts
+ * Tag Generator - Uses LLM to generate tags based on config/prompts.json
+ * LLM only - no fallback. Returns empty array if LLM not available.
  */
 
 import { generateJSONWithFallback, isLLMConfigured } from './llm-service';
 import { logger } from './logger';
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { normalizeCategory, isValidCategory } from './source-config';
+import { normalizeCategory } from './source-config';
 
 export interface GeneratedTag {
     name: string;
@@ -43,119 +43,48 @@ async function loadPromptConfig(): Promise<Record<string, string>> {
         logger.debug('[TagGenerator] Loaded prompt config from config/prompts.json');
         return cachedPromptConfig || {};
     } catch (error) {
-        logger.warn('[TagGenerator] Failed to load config/prompts.json, using fallback', { error });
+        logger.error('[TagGenerator] Failed to load config/prompts.json', { error });
         return {};
     }
 }
 
 /**
- * Get tag suggestion prompt from config or fallback
+ * Get tag suggestion prompt from config
  */
 async function getTagSuggestionPrompt(): Promise<string> {
     const config = await loadPromptConfig();
     const prompt = config.tagSuggestion;
-    if (prompt) {
-        logger.debug('[TagGenerator] Using tagSuggestion prompt from config');
-        return prompt;
+    if (!prompt) {
+        logger.error('[TagGenerator] tagSuggestion prompt not found in config');
+        throw new Error('Tag suggestion prompt not configured');
     }
-    logger.warn('[TagGenerator] Using fallback tag suggestion prompt');
-    return getFallbackTagSuggestionPrompt();
-}
-
-/**
- * Fallback tag suggestion prompt
- */
-function getFallbackTagSuggestionPrompt(): string {
-    return `Role: Banking AI Taxonomy Expert
-
-Task: Suggest relevant tags from the banking AI taxonomy with strict domain alignment
-
-## Taxonomy Categories
-
-### Risk Categories (High Priority)
-- credit-risk
-- market-risk
-- operational-risk
-- liquidity-risk
-- cyber-risk
-- fraud-risk
-- aml-risk
-- model-risk
-
-### AI Technologies
-- machine-learning
-- deep-learning
-- neural-networks
-- natural-language-processing
-- computer-vision
-- graph-neural-networks
-- reinforcement-learning
-- large-language-models
-- transformers
-- ensemble-methods
-- time-series-analysis
-
-### Business Areas
-- credit-assessment
-- fraud-detection
-- compliance
-- regulatory-reporting
-- trading
-- customer-analytics
-- risk-modeling
-- model-governance
-- stress-testing
-- capital-adequacy
-
-### Application Types
-- predictive-modeling
-- anomaly-detection
-- pattern-recognition
-- automation
-- decision-support
-- monitoring
-- classification
-- regression
-- clustering
-
-### Regulatory Frameworks
-- basel-iii
-- basel-iv
-- ifrs-9
-- cecl
-- ccar
-- dfast
-- gdpr
-- aml-regulations
-
-## Output Format
-Return 3-5 most relevant tags as a JSON array:
-[{"name": "tag1", "type": "Industrial"}, {"name": "tag2", "type": "Academic"}]
-
-## Selection Criteria
-1. MUST be specific to banking/finance domain
-2. Cover both technology AND business aspects
-3. Prioritize risk categories and regulatory tags when applicable
-4. Avoid generic AI tags without banking context
-5. Include regulatory framework tags when paper mentions compliance`;
+    logger.debug('[TagGenerator] Using tagSuggestion prompt from config');
+    return prompt;
 }
 
 /**
  * Generate tags using LLM based on paper content
- * With multi-provider fallback
+ * Returns empty array if LLM not configured or call fails
  */
 export async function generateTagsWithLLM(
     title: string,
     abstract: string,
     existingTags?: string[]
 ): Promise<TagGenerationResult> {
+    // LLM not configured - return empty
     if (!isLLMConfigured()) {
-        return getFallbackTags(title, abstract);
+        logger.warn('[TagGenerator] LLM not configured, skipping tag generation', { title: title.substring(0, 50) });
+        return {
+            tags: [],
+            confidence: 0,
+            reasoning: 'LLM not configured - tags can be added later via paper card'
+        };
     }
 
-    const systemPrompt = await getTagSuggestionPrompt();
+    try {
+        const systemPrompt = await getTagSuggestionPrompt();
 
-    const prompt = `Generate tags for this banking AI research paper:
+        const prompt = `Generate tags for this banking AI research paper:
 
 TITLE: ${title}
 
@@ -163,29 +92,22 @@ ABSTRACT: ${abstract || 'No abstract available'}
 
 ${existingTags?.length ? `EXISTING TAGS (avoid duplicates): ${existingTags.join(', ')}` : ''}
 
-Requirements:
-1. Analyze the paper for banking AI domain alignment
-2. Suggest 3-5 relevant tags covering technology and business aspects
-3. Use the taxonomy defined in your role
-4. Return ONLY a JSON array
+IMPORTANT: Follow the output format strictly. Each tag must have:
+- name: lowercase-with-dashes
+- category: one of (ai-technology, business-area, risk-category, regulatory, methodology)
 
-Return format:
-[
-  {"name": "fraud-detection", "type": "Industrial", "category": "risk-management"},
-  {"name": "deep-learning", "type": "Academic", "category": "ai-technology"}
-]`;
+Return ONLY the JSON array, no markdown formatting.`;
 
-    logger.info('[TagGenerator] Calling LLM for tag generation', { title: title.substring(0, 50) });
+        logger.info('[TagGenerator] Calling LLM for tag generation', { title: title.substring(0, 50) });
 
-    try {
         const result = await generateJSONWithFallback<GeneratedTag[]>(prompt, systemPrompt);
 
         // Validate and normalize tags
         const validTags = result
-            .filter(tag => tag.name && tag.type)
+            .filter(tag => tag.name && tag.category)
             .map(tag => ({
                 name: tag.name.toLowerCase().replace(/\s+/g, '-'),
-                type: tag.type,
+                type: tag.type || 'Industrial',
                 category: normalizeCategory(tag.category)
             }));
 
@@ -203,66 +125,16 @@ Return format:
         };
 
     } catch (error) {
-        logger.warn('[TagGenerator] All LLM providers failed, using rule-based fallback', { title: title.substring(0, 50), error });
-        return getFallbackTags(title, abstract);
+        logger.error('[TagGenerator] LLM tag generation failed', { 
+            title: title.substring(0, 50), 
+            error: error instanceof Error ? error.message : error 
+        });
+        return {
+            tags: [],
+            confidence: 0,
+            reasoning: 'LLM tag generation failed - tags can be added later via paper card'
+        };
     }
-}
-
-/**
- * Fallback tag generation using keyword matching
- */
-function getFallbackTags(title: string, abstract: string): TagGenerationResult {
-    const content = `${title} ${abstract}`.toLowerCase();
-    const tags: GeneratedTag[] = [];
-    
-    // Industrial Categories - using normalized categories from source-config
-    if (content.includes("compliance") || content.includes("aml") || content.includes("laundering")) {
-        tags.push({ name: "aml-compliance", type: "Industrial", category: "regulatory" });
-    }
-    if (content.includes("risk") || content.includes("credit") || content.includes("default")) {
-        tags.push({ name: "credit-risk", type: "Industrial", category: "risk-category" });
-    }
-    if (content.includes("fraud") || content.includes("detection")) {
-        tags.push({ name: "fraud-detection", type: "Industrial", category: "risk-category" });
-    }
-    if (content.includes("kyc") || content.includes("cdd") || content.includes("due diligence")) {
-        tags.push({ name: "ekyc-cdd", type: "Industrial", category: "regulatory" });
-    }
-    if (content.includes("portfolio") || content.includes("trading") || content.includes("asset")) {
-        tags.push({ name: "portfolio-optimization", type: "Industrial", category: "business-area" });
-    }
-    
-    // Academic Categories
-    if (content.includes("agent") || content.includes("autonomous") || content.includes("multi-agent")) {
-        tags.push({ name: "agent-designing", type: "Academic", category: "ai-technology" });
-        tags.push({ name: "agentic-ai-pipeline", type: "Academic", category: "ai-technology" });
-    }
-    if (content.includes("llm") || content.includes("language model") || content.includes("gpt") || content.includes("bert")) {
-        tags.push({ name: "llm-sft", type: "Academic", category: "ai-technology" });
-    }
-    if (content.includes("reinforcement") || content.includes("rl") || content.includes("q-network")) {
-        tags.push({ name: "rlhf", type: "Academic", category: "ai-technology" });
-    }
-    if (content.includes("neural network") || content.includes("deep learning") || content.includes("machine learning")) {
-        tags.push({ name: "deep-learning", type: "Academic", category: "ai-technology" });
-    }
-    
-    // Deduplicate
-    const uniqueTags = tags.filter((tag, index, self) =>
-        index === self.findIndex((t) => t.name === tag.name)
-    );
-    
-    logger.info('[TagGenerator] Fallback tags generated', { 
-        tagCount: uniqueTags.length,
-        tags: uniqueTags.map(t => t.name),
-        categories: uniqueTags.map(t => t.category)
-    });
-    
-    return {
-        tags: uniqueTags.slice(0, 5),
-        confidence: 0.6,
-        reasoning: 'Fallback keyword-based tag generation'
-    };
 }
 
 // Export config loader for external use
