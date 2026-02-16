@@ -411,11 +411,11 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
 
 /**
  * Run auto-collection with default settings
- * Uses 3-month time range by default
+ * Uses 1-week time range by default
  */
 export async function runAutoCollection(overrideQuery?: string): Promise<CollectionResult> {
-    // Default to past 1 week
-    const today = new Date('2026-02-13'); // Current date
+    // Use current system date
+    const today = new Date();
     const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     return runCollection({
@@ -480,7 +480,7 @@ function calculateDateRange(opts: CollectionOptions): { sinceDate?: Date; toDate
 
     // If no custom dates, use horizon
     if (!sinceDate && opts.horizon) {
-        const now = new Date('2026-02-13'); // Current date
+        const now = new Date();
         switch (opts.horizon) {
             case 'today':
                 sinceDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -526,8 +526,8 @@ async function filterDuplicates(
         select: { url: true, title: true }
     });
     
-    const existingUrls = new Set(existingPapers.map(p => p.url.toLowerCase()));
-    const existingTitles = new Set(existingPapers.map(p => 
+    const existingUrls = new Set(existingPapers.map((p: { url: string; title: string }) => p.url.toLowerCase()));
+    const existingTitles = new Set(existingPapers.map((p: { url: string; title: string }) => 
         p.title.toLowerCase().replace(/[^\w\s]/g, '').trim()
     ));
     
@@ -590,7 +590,7 @@ export async function getCollectionStats(): Promise<{
     papersThisMonth: number;
     lastCollectionDate?: Date;
 }> {
-    const now = new Date('2026-02-13'); // Current date
+    const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
