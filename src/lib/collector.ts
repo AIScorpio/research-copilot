@@ -59,7 +59,7 @@ interface SemanticScholarPaper {
     publicationDate?: string;
 }
 
-async function searchArxiv(query: string, limit: number = 5, retries: number = 3): Promise<SearchResult[]> {
+async function searchArxiv(query: string, limit: number = 5, baseUrl: string = 'https://export.arxiv.org/api/query', retries: number = 3): Promise<SearchResult[]> {
     for (let attempt = 0; attempt < retries; attempt++) {
         try {
             // SIMPLIFIED: Use query as-is (already optimized by query-optimizer)
@@ -67,7 +67,7 @@ async function searchArxiv(query: string, limit: number = 5, retries: number = 3
             const searchQuery = query;
             
             const encodedQuery = encodeURIComponent(searchQuery);
-            const url = `https://export.arxiv.org/api/query?search_query=${encodedQuery}&start=0&max_results=${limit}&sortBy=submittedDate&sortOrder=descending`;
+            const url = `${baseUrl}?search_query=${encodedQuery}&start=0&max_results=${limit}&sortBy=submittedDate&sortOrder=descending`;
             
             logger.debug(`ArXiv search URL: ${url.substring(0, 200)}...`);
             
@@ -116,11 +116,11 @@ async function searchArxiv(query: string, limit: number = 5, retries: number = 3
     return [];
 }
 
-async function searchSemanticScholar(query: string, limit: number = 5): Promise<SearchResult[]> {
+async function searchSemanticScholar(query: string, limit: number = 5, baseUrl: string = 'https://api.semanticscholar.org/graph/v1'): Promise<SearchResult[]> {
     try {
         // Semantic Scholar Graph API
         const encodedQuery = encodeURIComponent(query);
-        const res = await fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodedQuery}&limit=${limit}&fields=title,abstract,url,venue,publicationDate`);
+        const res = await fetch(`${baseUrl}/paper/search?query=${encodedQuery}&limit=${limit}&fields=title,abstract,url,venue,publicationDate`);
         
         if (!res.ok) {
             await markSourceFailure("Semantic Scholar");
@@ -150,14 +150,14 @@ async function searchSemanticScholar(query: string, limit: number = 5): Promise<
     }
 }
 
-async function searchSSRN(query: string, limit: number = 5): Promise<SearchResult[]> {
+async function searchSSRN(query: string, limit: number = 5, baseUrl: string = 'https://papers.ssrn.com'): Promise<SearchResult[]> {
     try {
         // SSRN doesn't have a free public API, but we can scrape their RSS feed or search page
         // For now, implementing a basic RSS feed search
 
         // SSRN search URL returns HTML, but we can parse their recent papers feed
         // Alternative: Use their advanced search which returns results in a parseable format
-        const res = await fetch(`https://papers.ssrn.com/sol3/JELJOUR_Results.cfm?form_name=journalBrowse&journal_id=&Network=no&lim=false&npage=1&nper_page=${limit}`);
+        const res = await fetch(`${baseUrl}/sol3/JELJOUR_Results.cfm?form_name=journalBrowse&journal_id=&Network=no&lim=false&npage=1&nper_page=${limit}`);
 
         if (!res.ok) {
             logger.warn(`SSRN Search returned ${res.status}`);
@@ -386,15 +386,23 @@ async function searchRegulatorySources(query: string, limit: number = 5): Promis
 interface SourceItem {
     name: string;
     type?: string;
+    url?: string;
 }
 
 export async function searchOnline(query: string = "AI", since?: Date, to?: Date, explicitSources: SourceItem[] = []): Promise<SearchResult[]> {
     logger.debug(`Real Collection Searching for: ${query}`);
 
-    // Use only the provided explicitSources, don't add extra sources
-    const lowerSources = explicitSources.map(s => s.name.toLowerCase());
-    
+    const promises: Promise<SearchResult[]>[] = [];
+    const sourceNames: string[] = [];
+
+    // Build source URL map from explicitSources
+    const sourceUrlMap = new Map<string, string>();
+    explicitSources.forEach(s => {
+        sourceUrlMap.set(s.name.toLowerCase(), s.url || '');
+    });
+
     // Map database source names to search functions
+    const lowerSources = explicitSources.map(s => s.name.toLowerCase());
     const fetchArxiv = lowerSources.some(s => s.includes("arxiv"));
     const fetchScholar = lowerSources.some(s => s.includes("scholar"));
     const fetchSSRN = lowerSources.some(s => s.includes("ssrn"));
@@ -403,25 +411,26 @@ export async function searchOnline(query: string = "AI", since?: Date, to?: Date
 
     logger.debug(`Real Collection Sources - ArXiv: ${fetchArxiv}, Scholar: ${fetchScholar}, SSRN: ${fetchSSRN}, IEEE: ${fetchIEEE}, ACM: ${fetchACM}`);
 
-    const promises: Promise<SearchResult[]>[] = [];
-    const sourceNames: string[] = [];
-
-    // Search only the explicitly enabled sources
+    // Search only the explicitly enabled sources with their URLs from database
     if (fetchArxiv) {
-        promises.push(searchArxiv(query, 10));
+        const baseUrl = sourceUrlMap.get('arxiv') || 'https://export.arxiv.org/api/query';
+        promises.push(searchArxiv(query, 10, baseUrl));
         sourceNames.push('ArXiv');
     }
     if (fetchScholar) {
-        promises.push(searchSemanticScholar(query, 10));
+        const baseUrl = sourceUrlMap.get('semantic-scholar') || 'https://api.semanticscholar.org/graph/v1';
+        promises.push(searchSemanticScholar(query, 10, baseUrl));
         sourceNames.push('Google Scholar');
     }
     if (fetchSSRN) {
-        promises.push(searchSSRN(query, 10));
+        const baseUrl = sourceUrlMap.get('ssrn') || 'https://papers.ssrn.com';
+        promises.push(searchSSRN(query, 10, baseUrl));
         sourceNames.push('SSRN');
     }
     // Note: IEEE and ACM use Semantic Scholar as backend since they don't have free APIs
     if (fetchIEEE || fetchACM) {
-        promises.push(searchSemanticScholar(query, 10));
+        const baseUrl = sourceUrlMap.get('semantic-scholar') || 'https://api.semanticscholar.org/graph/v1';
+        promises.push(searchSemanticScholar(query, 10, baseUrl));
         if (fetchIEEE) sourceNames.push('IEEE Xplore');
         if (fetchACM) sourceNames.push('ACM Digital Library');
     }

@@ -12,6 +12,7 @@
           "name": "arxiv",
           "displayName": "ArXiv",
           "description": "Open-access archive for scholarly articles",
+          "url": "https://export.arxiv.org/api/query",
           "enabled": true,
           "hasCollector": true
         },
@@ -19,6 +20,7 @@
           "name": "semantic-scholar",
           "displayName": "Google Scholar",
           "description": "Academic search engine",
+          "url": "https://api.semanticscholar.org/graph/v1",
           "enabled": true,
           "hasCollector": true
         },
@@ -26,6 +28,7 @@
           "name": "ssrn",
           "displayName": "SSRN",
           "description": "Social Science Research Network",
+          "url": "https://papers.ssrn.com",
           "enabled": true,
           "hasCollector": true
         },
@@ -33,6 +36,7 @@
           "name": "ieee",
           "displayName": "IEEE Xplore",
           "description": "IEEE digital library (via Semantic Scholar)",
+          "url": "https://api.semanticscholar.org/graph/v1",
           "enabled": true,
           "hasCollector": "proxy"
         },
@@ -40,6 +44,7 @@
           "name": "acm",
           "displayName": "ACM Digital Library",
           "description": "ACM digital library (via Semantic Scholar)",
+          "url": "https://api.semanticscholar.org/graph/v1",
           "enabled": true,
           "hasCollector": "proxy"
         }

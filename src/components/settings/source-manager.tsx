@@ -4,13 +4,13 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Plus, ChevronDown, ChevronRight, GraduationCap, Building2, Share2, Scale, FileText } from "lucide-react"
+import { Trash2, Plus, ChevronDown, ChevronRight, Pencil, GraduationCap, Building2, Share2, Scale, FileText } from "lucide-react"
 
 interface Source {
     id: string;
     name: string;
     displayName?: string;
-    url?: string;
+    url: string;
     type: string;
     enabled: boolean;
 }
@@ -19,6 +19,7 @@ interface SystemSource {
     name: string;
     displayName: string;
     description: string;
+    url: string;
     enabled: boolean;
     hasCollector: boolean | 'proxy';
 }
@@ -37,7 +38,6 @@ interface SourceTypesConfig {
     sourceTypes: SourceType[];
 }
 
-// Icon mapping
 const iconMap: Record<string, React.ReactNode> = {
     'GraduationCap': <GraduationCap className="h-5 w-5" />,
     'Building2': <Building2 className="h-5 w-5" />,
@@ -52,22 +52,21 @@ export default function SourceManager() {
     const [expandedTypes, setExpandedTypes] = useState<string[]>(['academic']);
     const [newSource, setNewSource] = useState({ name: '', displayName: '', url: '', type: 'academic' });
     const [addingToType, setAddingToType] = useState<string | null>(null);
+    const [editingSource, setEditingSource] = useState<Source | null>(null);
+    const [editForm, setEditForm] = useState({ displayName: '', url: '' });
 
-    // Load source types config and database sources
     useEffect(() => {
         loadData();
     }, []);
 
     const loadData = async () => {
         try {
-            // Load config
             const configRes = await fetch('/api/source-types');
             if (configRes.ok) {
                 const config: SourceTypesConfig = await configRes.json();
                 setSourceTypes(config.sourceTypes || []);
             }
 
-            // Load database sources
             const sourcesRes = await fetch('/api/sources');
             if (sourcesRes.ok) {
                 setDbSources(await sourcesRes.json());
@@ -99,7 +98,7 @@ export default function SourceManager() {
     };
 
     const handleAddSource = async (typeId: string) => {
-        if (!newSource.name) return;
+        if (!newSource.name || !newSource.url) return;
 
         try {
             await fetch('/api/sources', {
@@ -108,7 +107,7 @@ export default function SourceManager() {
                 body: JSON.stringify({
                     name: newSource.name.toLowerCase(),
                     displayName: newSource.displayName || newSource.name,
-                    url: newSource.url || '',
+                    url: newSource.url,
                     type: typeId,
                     enabled: true
                 })
@@ -118,6 +117,27 @@ export default function SourceManager() {
             loadData();
         } catch (error) {
             console.error('Failed to add source:', error);
+        }
+    };
+
+    const handleUpdateSource = async () => {
+        if (!editingSource || !editForm.url) return;
+
+        try {
+            await fetch('/api/sources', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingSource.id,
+                    displayName: editForm.displayName,
+                    url: editForm.url
+                })
+            });
+            setEditingSource(null);
+            setEditForm({ displayName: '', url: '' });
+            loadData();
+        } catch (error) {
+            console.error('Failed to update source:', error);
         }
     };
 
@@ -134,7 +154,11 @@ export default function SourceManager() {
         }
     };
 
-    // Get custom (user-added) sources for a specific type (excludes system sources)
+    const startEdit = (source: Source) => {
+        setEditingSource(source);
+        setEditForm({ displayName: source.displayName || source.name, url: source.url });
+    };
+
     const getCustomSourcesForType = (typeId: string, systemSources: SystemSource[]): Source[] => {
         const systemSourceNames = new Set(systemSources.map(s => s.name.toLowerCase()));
         return dbSources.filter(s => 
@@ -143,7 +167,6 @@ export default function SourceManager() {
         );
     };
 
-    // Get enabled count for a type (system from config + custom from DB)
     const getEnabledCount = (typeId: string, systemSources: SystemSource[]): number => {
         const enabledSystem = systemSources.filter(s => {
             const dbSource = dbSources.find(d => d.name.toLowerCase() === s.name.toLowerCase());
@@ -165,7 +188,6 @@ export default function SourceManager() {
                     
                     return (
                         <div key={sourceType.id} className="border rounded-lg">
-                            {/* Header - Clickable */}
                             <button
                                 onClick={() => toggleExpand(sourceType.id)}
                                 className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
@@ -188,7 +210,6 @@ export default function SourceManager() {
                                 </div>
                             </button>
 
-                            {/* Content - Expandable */}
                             {isExpanded && (
                                 <div className="px-4 pb-4 space-y-2">
                                     {/* System Sources */}
@@ -202,6 +223,7 @@ export default function SourceManager() {
                                                     s.name.toLowerCase() === sysSource.name.toLowerCase()
                                                 );
                                                 const isEnabled = dbSource?.enabled ?? sysSource.enabled;
+                                                const displayUrl = dbSource?.url || sysSource.url;
                                                 
                                                 return (
                                                     <div 
@@ -216,6 +238,7 @@ export default function SourceManager() {
                                                                 )}
                                                             </div>
                                                             <p className="text-xs text-muted-foreground">{sysSource.description}</p>
+                                                            <p className="text-xs text-blue-600 font-mono truncate">{displayUrl}</p>
                                                         </div>
                                                         <button
                                                             onClick={() => handleToggleSource(sysSource.name, isEnabled)}
@@ -233,45 +256,59 @@ export default function SourceManager() {
                                         </div>
                                     )}
 
-                                    {/* Custom Sources (User Added) */}
+                                    {/* Custom Sources */}
                                     {customSources.length > 0 && (
                                         <div className="space-y-1">
                                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-2">
                                                 Custom Sources
                                             </p>
                                             {customSources.map((source: Source) => (
-                                                <div 
-                                                    key={source.id}
-                                                    className="flex items-center justify-between p-3 bg-muted/30 rounded"
-                                                >
-                                                    <div className="flex-1">
-                                                        <p className="font-medium text-sm">
-                                                            {source.displayName || source.name}
-                                                        </p>
-                                                        {source.url && (
-                                                            <p className="text-xs text-muted-foreground">{source.url}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => handleToggleSource(source.name, source.enabled)}
-                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                                source.enabled ? 'bg-primary' : 'bg-muted'
-                                                            }`}
-                                                        >
-                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                source.enabled ? 'translate-x-6' : 'translate-x-1'
-                                                            }`} />
-                                                        </button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleDeleteSource(source.id)}
-                                                            className="h-8 w-8"
-                                                        >
-                                                            <Trash2 className="h-4 w-4 text-red-500" />
-                                                        </Button>
-                                                    </div>
+                                                <div key={source.id}>
+                                                    {editingSource?.id === source.id ? (
+                                                        <div className="space-y-2 p-3 border rounded bg-background">
+                                                            <Input
+                                                                placeholder="Display name"
+                                                                value={editForm.displayName}
+                                                                onChange={e => setEditForm({...editForm, displayName: e.target.value})}
+                                                                className="text-sm"
+                                                            />
+                                                            <Input
+                                                                placeholder="URL (required)"
+                                                                value={editForm.url}
+                                                                onChange={e => setEditForm({...editForm, url: e.target.value})}
+                                                                className="text-sm"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <Button size="sm" onClick={handleUpdateSource}>Save</Button>
+                                                                <Button size="sm" variant="outline" onClick={() => setEditingSource(null)}>Cancel</Button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-between p-3 bg-muted/30 rounded">
+                                                            <div className="flex-1">
+                                                                <p className="font-medium text-sm">{source.displayName || source.name}</p>
+                                                                <p className="text-xs text-blue-600 font-mono truncate">{source.url}</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <button
+                                                                    onClick={() => handleToggleSource(source.name, source.enabled)}
+                                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                                        source.enabled ? 'bg-primary' : 'bg-muted'
+                                                                    }`}
+                                                                >
+                                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                        source.enabled ? 'translate-x-6' : 'translate-x-1'
+                                                                    }`} />
+                                                                </button>
+                                                                <Button variant="ghost" size="icon" onClick={() => startEdit(source)} className="h-8 w-8">
+                                                                    <Pencil className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteSource(source.id)} className="h-8 w-8">
+                                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -295,15 +332,17 @@ export default function SourceManager() {
                                                         className="text-sm"
                                                     />
                                                     <Input
-                                                        placeholder="URL (optional)"
+                                                        placeholder="URL (required, e.g., https://api.example.com)"
                                                         value={newSource.url}
                                                         onChange={e => setNewSource({...newSource, url: e.target.value})}
                                                         className="text-sm"
+                                                        required
                                                     />
                                                     <div className="flex gap-2">
                                                         <Button 
                                                             size="sm" 
                                                             onClick={() => handleAddSource(sourceType.id)}
+                                                            disabled={!newSource.name || !newSource.url}
                                                         >
                                                             Add
                                                         </Button>
@@ -333,7 +372,6 @@ export default function SourceManager() {
                                         </div>
                                     )}
 
-                                    {/* Empty state */}
                                     {sourceType.systemSources.length === 0 && customSources.length === 0 && (
                                         <p className="text-sm text-muted-foreground py-2">
                                             No sources configured for this category.

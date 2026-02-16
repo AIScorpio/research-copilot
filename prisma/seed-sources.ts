@@ -7,6 +7,7 @@ interface SystemSource {
   name: string;
   displayName: string;
   description: string;
+  url: string;
   enabled: boolean;
   hasCollector: boolean | 'proxy';
 }
@@ -44,6 +45,7 @@ async function main() {
             displayName: sysSource.displayName,
             type: sourceType.id,
             enabled: sysSource.enabled,
+            url: sysSource.url,
           }
         });
       } else {
@@ -54,7 +56,7 @@ async function main() {
             displayName: sysSource.displayName,
             type: sourceType.id,
             enabled: sysSource.enabled,
-            url: '',
+            url: sysSource.url,
             requiresAuth: false,
           }
         });

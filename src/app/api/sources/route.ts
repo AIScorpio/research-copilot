@@ -116,3 +116,52 @@ export async function DELETE(request: Request) {
         return NextResponse.json(handled, { status: handled.statusCode });
     }
 }
+
+export async function PATCH(request: Request) {
+    try {
+        await requireAuth();
+
+        const cookieStore = await cookies();
+        const isValidCSRF = request.headers.get(CSRF_HEADER_NAME) === cookieStore.get('csrf_token')?.value;
+        if (!isValidCSRF) {
+            return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+        }
+
+        const body = await request.json();
+        
+        // Update by ID (for editing displayName and url)
+        if (body.id) {
+            const { id, displayName, url, enabled } = body;
+            
+            const updateData: Record<string, unknown> = {};
+            if (displayName !== undefined) updateData.displayName = displayName;
+            if (url !== undefined) updateData.url = url;
+            if (enabled !== undefined) updateData.enabled = enabled;
+            
+            const source = await prisma.source.update({
+                where: { id },
+                data: updateData
+            });
+            return NextResponse.json(source);
+        }
+        
+        // Update by name (for toggling enabled)
+        if (body.name) {
+            const { name, enabled } = body;
+            
+            const source = await prisma.source.update({
+                where: { name },
+                data: { enabled }
+            });
+            return NextResponse.json(source);
+        }
+        
+        return NextResponse.json({ error: "Missing id or name" }, { status: 400 });
+    } catch (e) {
+        if (e instanceof Error && e.message === 'Unauthorized') {
+            return createUnauthorizedResponse();
+        }
+        const handled = handleError(e);
+        return NextResponse.json(handled, { status: handled.statusCode });
+    }
+}
