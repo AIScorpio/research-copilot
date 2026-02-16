@@ -19,6 +19,7 @@ import {
 import SourceManager from '@/components/settings/source-manager';
 import NotificationSettings from '@/components/settings/notification-settings';
 import { LLMProviderManager } from '@/components/settings/llm-provider-manager';
+import CollectionSettings from '@/components/settings/collection-settings';
 
 interface PromptTemplates {
     queryOptimization: string;
@@ -76,7 +77,10 @@ export default function SettingsPage() {
             {/* 3. Notification Settings */}
             <NotificationSettings />
 
-            {/* 1. Multi-Provider LLM Manager */}
+            {/* 4. Collection Settings */}
+            <CollectionSettings />
+
+            {/* 5. Multi-Provider LLM Manager */}
             <LLMProviderManager />
 
             {/* 2. Prompt Templates Card */}

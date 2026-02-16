@@ -59,17 +59,51 @@ interface SemanticScholarPaper {
     publicationDate?: string;
 }
 
-async function searchArxiv(query: string, limit: number = 5, baseUrl: string = 'https://export.arxiv.org/api/query', retries: number = 3): Promise<SearchResult[]> {
+/**
+ * Format date for ArXiv submittedDate query
+ * Format: YYYYMMDDHHMM (e.g., 202602090000)
+ */
+function formatDateForArxiv(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}${month}${day}0000`;
+}
+
+/**
+ * Search ArXiv with date range support
+ * ArXiv API supports submittedDate:[from TO to] in search_query
+ */
+async function searchArxiv(
+    query: string, 
+    limit: number = 20, 
+    baseUrl: string = 'https://export.arxiv.org/api/query',
+    since?: Date,
+    to?: Date,
+    retries: number = 3
+): Promise<SearchResult[]> {
     for (let attempt = 0; attempt < retries; attempt++) {
         try {
-            // SIMPLIFIED: Use query as-is (already optimized by query-optimizer)
-            // No ArXiv-specific syntax (no 'cat:', no 'all:')
-            const searchQuery = query;
+            // Build search query with optional date range
+            let searchQuery = query;
+            
+            if (since && to) {
+                const sinceStr = formatDateForArxiv(since);
+                const toStr = formatDateForArxiv(to);
+                searchQuery = `${query}+AND+submittedDate:[${sinceStr}+TO+${toStr}]`;
+            } else if (since) {
+                const sinceStr = formatDateForArxiv(since);
+                searchQuery = `${query}+AND+submittedDate:[${sinceStr}+TO+999912312359]`;
+            } else if (to) {
+                const toStr = formatDateForArxiv(to);
+                searchQuery = `${query}+AND+submittedDate:[199101010000+TO+${toStr}]`;
+            }
             
             const encodedQuery = encodeURIComponent(searchQuery);
             const url = `${baseUrl}?search_query=${encodedQuery}&start=0&max_results=${limit}&sortBy=submittedDate&sortOrder=descending`;
             
-            logger.debug(`ArXiv search URL: ${url.substring(0, 200)}...`);
+            logger.debug(`ArXiv search URL: ${url.substring(0, 300)}...`);
+            logger.debug(`ArXiv date range: since=${since?.toISOString() || 'none'}, to=${to?.toISOString() || 'none'}`);
             
             const res = await fetch(url);
             
@@ -116,7 +150,18 @@ async function searchArxiv(query: string, limit: number = 5, baseUrl: string = '
     return [];
 }
 
-async function searchSemanticScholar(query: string, limit: number = 5, baseUrl: string = 'https://api.semanticscholar.org/graph/v1'): Promise<SearchResult[]> {
+/**
+ * Search Semantic Scholar
+ * Note: Semantic Scholar API doesn't support date range filtering directly
+ * Date filtering is done client-side after fetching
+ */
+async function searchSemanticScholar(
+    query: string, 
+    limit: number = 20, 
+    baseUrl: string = 'https://api.semanticscholar.org/graph/v1',
+    since?: Date,
+    to?: Date
+): Promise<SearchResult[]> {
     try {
         // Semantic Scholar Graph API
         const encodedQuery = encodeURIComponent(query);
@@ -136,13 +181,23 @@ async function searchSemanticScholar(query: string, limit: number = 5, baseUrl: 
 
         await resetSourceFailure("Semantic Scholar");
 
-        return data.data.map((paper: SemanticScholarPaper) => ({
+        let results = data.data.map((paper: SemanticScholarPaper) => ({
             title: paper.title,
             abstract: paper.abstract || "No abstract available.",
             url: paper.url || paper.openAccessPdf?.url || `https://www.semanticscholar.org/paper/${paper.paperId}`,
             source: paper.venue || "Semantic Scholar",
             publicationDate: paper.publicationDate ? new Date(paper.publicationDate) : new Date('2000-01-01'),
         }));
+
+        // Client-side date filtering for Semantic Scholar
+        if (since) {
+            results = results.filter((p: SearchResult) => p.publicationDate >= since);
+        }
+        if (to) {
+            results = results.filter((p: SearchResult) => p.publicationDate <= to);
+        }
+
+        return results;
     } catch (error) {
         await markSourceFailure("Semantic Scholar");
         logger.error("Semantic Scholar Search Failed", { error });
@@ -150,7 +205,17 @@ async function searchSemanticScholar(query: string, limit: number = 5, baseUrl: 
     }
 }
 
-async function searchSSRN(query: string, limit: number = 5, baseUrl: string = 'https://papers.ssrn.com'): Promise<SearchResult[]> {
+/**
+ * Search SSRN
+ * Note: SSRN doesn't have a free public API
+ */
+async function searchSSRN(
+    query: string, 
+    limit: number = 20, 
+    baseUrl: string = 'https://papers.ssrn.com',
+    since?: Date,
+    to?: Date
+): Promise<SearchResult[]> {
     try {
         // SSRN doesn't have a free public API, but we can scrape their RSS feed or search page
         // For now, implementing a basic RSS feed search
@@ -175,7 +240,7 @@ async function searchSSRN(query: string, limit: number = 5, baseUrl: string = 'h
     }
 }
 
-async function searchBankingSources(query: string, limit: number = 5): Promise<SearchResult[]> {
+async function searchBankingSources(query: string, limit: number = 5, since?: Date, to?: Date): Promise<SearchResult[]> {
     try {
         // Banking News Sources RSS Feeds (updated to working URLs)
         const rssUrls = [
@@ -213,6 +278,11 @@ async function searchBankingSources(query: string, limit: number = 5): Promise<S
                 for (const item of entries) {
                     const title = item.title || '';
                     const description = item.description || '';
+                    const pubDate = parseRSSDate(item.pubDate || item.published);
+
+                    // Date filtering
+                    if (since && pubDate < since) continue;
+                    if (to && pubDate > to) continue;
 
                     // Check if item matches query terms
                     const matchesQuery = queryTerms.length === 0 ||
@@ -222,7 +292,6 @@ async function searchBankingSources(query: string, limit: number = 5): Promise<S
                         );
 
                     if (matchesQuery && title) {
-                        const pubDate = parseRSSDate(item.pubDate || item.published);
                         const link = item.link || item.guid || '';
 
                         allResults.push({
@@ -271,7 +340,7 @@ function getSourceNameFromUrl(url: string): string {
     return 'Banking News';
 }
 
-async function searchSocialSources(query: string, limit: number = 5): Promise<SearchResult[]> {
+async function searchSocialSources(query: string, limit: number = 5, since?: Date, to?: Date): Promise<SearchResult[]> {
     try {
         // Extract keywords from query for social media filtering
         const keywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 3);
@@ -280,9 +349,18 @@ async function searchSocialSources(query: string, limit: number = 5): Promise<Se
 
         const results = await getSocialTrends(keywords, limit);
 
-        logger.debug(`Social Media Found ${results.length} posts`);
+        // Client-side date filtering
+        let filtered = results;
+        if (since) {
+            filtered = filtered.filter(p => p.publicationDate >= since);
+        }
+        if (to) {
+            filtered = filtered.filter(p => p.publicationDate <= to);
+        }
 
-        return results;
+        logger.debug(`Social Media Found ${filtered.length} posts`);
+
+        return filtered;
     } catch (error) {
         logger.error("Social Media Collection failed", { error });
         return [];
@@ -304,7 +382,7 @@ function stripHtml(html: string): string {
     return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
 
-async function searchRegulatorySources(query: string, limit: number = 5): Promise<SearchResult[]> {
+async function searchRegulatorySources(query: string, limit: number = 5, since?: Date, to?: Date): Promise<SearchResult[]> {
     try {
         // Regulatory Sources RSS Feeds (updated to working URLs)
         const rssUrls = [
@@ -344,6 +422,11 @@ async function searchRegulatorySources(query: string, limit: number = 5): Promis
                 for (const item of entries) {
                     const title = item.title || '';
                     const description = item.description || '';
+                    const pubDate = parseRSSDate(item.pubDate || item.published);
+
+                    // Date filtering
+                    if (since && pubDate < since) continue;
+                    if (to && pubDate > to) continue;
 
                     // Check if item matches query terms (AI, model, risk, compliance, etc.)
                     const matchesQuery = queryTerms.length === 0 ||
@@ -353,7 +436,6 @@ async function searchRegulatorySources(query: string, limit: number = 5): Promis
                         );
 
                     if (matchesQuery && title) {
-                        const pubDate = parseRSSDate(item.pubDate || item.published);
                         const link = item.link || item.guid || '';
 
                         allResults.push({
@@ -389,8 +471,26 @@ interface SourceItem {
     url?: string;
 }
 
-export async function searchOnline(query: string = "AI", since?: Date, to?: Date, explicitSources: SourceItem[] = []): Promise<SearchResult[]> {
+/**
+ * Search online sources for papers
+ * @param query Search query
+ * @param since Start date filter
+ * @param to End date filter
+ * @param explicitSources List of sources to search
+ * @param limit Maximum results per source (default 20)
+ */
+export async function searchOnline(
+    query: string = "AI", 
+    since?: Date, 
+    to?: Date, 
+    explicitSources: SourceItem[] = [],
+    limit: number = 20
+): Promise<SearchResult[]> {
     logger.debug(`Real Collection Searching for: ${query}`);
+    logger.debug(`Real Collection Limit per source: ${limit}`);
+    if (since || to) {
+        logger.debug(`Real Collection Date range: since=${since?.toISOString() || 'none'}, to=${to?.toISOString() || 'none'}`);
+    }
 
     const promises: Promise<SearchResult[]>[] = [];
     const sourceNames: string[] = [];
@@ -412,25 +512,26 @@ export async function searchOnline(query: string = "AI", since?: Date, to?: Date
     logger.debug(`Real Collection Sources - ArXiv: ${fetchArxiv}, Scholar: ${fetchScholar}, SSRN: ${fetchSSRN}, IEEE: ${fetchIEEE}, ACM: ${fetchACM}`);
 
     // Search only the explicitly enabled sources with their URLs from database
+    // All search functions now receive limit, since, and to parameters
     if (fetchArxiv) {
         const baseUrl = sourceUrlMap.get('arxiv') || 'https://export.arxiv.org/api/query';
-        promises.push(searchArxiv(query, 10, baseUrl));
+        promises.push(searchArxiv(query, limit, baseUrl, since, to));
         sourceNames.push('ArXiv');
     }
     if (fetchScholar) {
         const baseUrl = sourceUrlMap.get('semantic-scholar') || 'https://api.semanticscholar.org/graph/v1';
-        promises.push(searchSemanticScholar(query, 10, baseUrl));
+        promises.push(searchSemanticScholar(query, limit, baseUrl, since, to));
         sourceNames.push('Google Scholar');
     }
     if (fetchSSRN) {
         const baseUrl = sourceUrlMap.get('ssrn') || 'https://papers.ssrn.com';
-        promises.push(searchSSRN(query, 10, baseUrl));
+        promises.push(searchSSRN(query, limit, baseUrl, since, to));
         sourceNames.push('SSRN');
     }
     // Note: IEEE and ACM use Semantic Scholar as backend since they don't have free APIs
     if (fetchIEEE || fetchACM) {
         const baseUrl = sourceUrlMap.get('semantic-scholar') || 'https://api.semanticscholar.org/graph/v1';
-        promises.push(searchSemanticScholar(query, 10, baseUrl));
+        promises.push(searchSemanticScholar(query, limit, baseUrl, since, to));
         if (fetchIEEE) sourceNames.push('IEEE Xplore');
         if (fetchACM) sourceNames.push('ACM Digital Library');
     }
@@ -449,22 +550,7 @@ export async function searchOnline(query: string = "AI", since?: Date, to?: Date
 
     logger.debug(`Real Collection Unique results: ${uniqueResults.length}`);
 
-    // Client-side date filtering
-    let filtered = uniqueResults;
-
-    if (since) {
-        logger.debug(`Real Collection Filtering since: ${since.toISOString()}`);
-        filtered = filtered.filter(p => p.publicationDate >= since);
-    }
-
-    if (to) {
-        logger.debug(`Real Collection Filtering to: ${to.toISOString()}`);
-        filtered = filtered.filter(p => p.publicationDate <= to);
-    }
-
-    if (since || to) {
-        logger.debug(`Real Collection Results after date filter: ${filtered.length}`);
-    }
-
-    return filtered;
+    // Note: Date filtering is now done server-side for ArXiv
+    // But we keep client-side filtering as fallback for other sources
+    return uniqueResults;
 }

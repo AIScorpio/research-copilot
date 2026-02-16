@@ -90,6 +90,7 @@ async function main() {
   const results: FeedTestResult[] = [];
 
   for (const source of bankingSources) {
+    if (!source.url) continue;
     const result = await testRSSFeed(source.name, source.url);
     results.push(result);
 

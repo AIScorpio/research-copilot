@@ -153,12 +153,9 @@ export function normalizeCategory(category: string | undefined): string {
     'cyber-risk': 'risk-category',
     'aml': 'risk-category',
     'anti-money laundering': 'risk-category',
-    
-    // Regulatory aliases
-    'reg': 'regulatory',
-    'regulatory': 'regulatory',
-    'compliance': 'regulatory',
-    'regulatory compliance': 'regulatory',
+    'model risk': 'risk-category',
+    'model-risk': 'risk-category',
+    'model risk management': 'risk-category',
     
     // Methodology aliases
     'method': 'methodology',
@@ -166,6 +163,8 @@ export function normalizeCategory(category: string | undefined): string {
     'research method': 'methodology',
     'education': 'methodology',
     'modeling': 'methodology',
+    'predictive modeling': 'methodology',
+    'predictive-modeling': 'methodology',
   };
   
   if (isValidCategory(normalized)) {

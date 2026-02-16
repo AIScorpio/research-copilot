@@ -81,8 +81,8 @@ export function PipelineView({ initialSources, recentPapers }: PipelineViewProps
                     dateTo: dateHorizon === 'custom' ? customTo : undefined,
                     useLLMOptimization: useAgent,
                     useLLMFiltering: useAgent,
-                    queryStrictness: strictness,
-                    maxResults: 100
+                    queryStrictness: strictness
+                    // maxResults is read from config/collection.json on the server
                 })
             });
             const data = await res.json();

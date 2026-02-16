@@ -74,6 +74,7 @@ async function main() {
   const results: FeedTestResult[] = [];
 
   for (const source of sources) {
+    if (!source.url) continue;
     console.log(`Testing: ${source.name}`);
     console.log(`URL: ${source.url}`);
 

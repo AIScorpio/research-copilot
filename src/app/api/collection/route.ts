@@ -1,13 +1,12 @@
 /**
  * Collection API - Updated to use new collection service
- * Supports auto and manual modes with LLM-powered features
+ * Supports auto and pipeline modes with LLM-powered features
  */
 
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { 
-    runCollection, 
     runAutoCollection, 
     runPipelineCollection,
     CollectionOptions 
@@ -17,7 +16,7 @@ import { logger } from '@/lib/logger';
 
 // Validation schema for collection request
 const CollectionSchema = z.object({
-    mode: z.enum(['auto', 'manual', 'pipeline']).default('manual'),
+    mode: z.enum(['auto', 'pipeline']).default('pipeline'),
     query: z.string().min(1).max(500).optional(),
     horizon: z.enum(['today', 'week', 'month', 'year', 'custom']).optional(),
     dateFrom: z.string().regex(/^\d{4}(-\d{2}(-\d{2})?)?$/).optional(),
@@ -33,7 +32,7 @@ const CollectionSchema = z.object({
 
 /**
  * POST /api/collection
- * Main collection endpoint supporting multiple modes
+ * Main collection endpoint supporting auto and pipeline modes
  */
 export async function POST(request: Request) {
     try {
@@ -76,11 +75,8 @@ export async function POST(request: Request) {
                 result = await runAutoCollection(data.query);
                 break;
             case 'pipeline':
-                result = await runPipelineCollection(data.query || 'AI in banking', options);
-                break;
-            case 'manual':
             default:
-                result = await runCollection(options);
+                result = await runPipelineCollection(data.query || 'AI in banking', options);
                 break;
         }
         

@@ -6,7 +6,7 @@
  * - Database duplicate detection
  * - LLM-powered content filtering
  * - Configurable limits and modes
- * - Manual mode inherits auto mode base conditions
+ * - Configuration from config/collection.json
  */
 
 import { searchOnline, SearchResult } from './collector';
@@ -18,8 +18,9 @@ import { logger } from './logger';
 import { revalidatePath } from 'next/cache';
 import { triggerCollectionAlerts } from './newsletter';
 import { inferSourceTypeFromName } from './source-type-service';
+import { loadCollectionConfig } from './collection-config';
 
-export type CollectionMode = 'auto' | 'manual' | 'pipeline';
+export type CollectionMode = 'auto' | 'pipeline';
 
 export interface CollectionOptions {
     mode: CollectionMode;
@@ -81,13 +82,6 @@ const MODE_DEFAULTS: Record<CollectionMode, Partial<CollectionOptions>> = {
         maxResults: 100, // Soft limit: 100 papers
         minRelevanceScore: 5, // 1-10 scale: 5 is minimum for "partially relevant"
         focusAreas: ['risk-management', 'compliance', 'fraud-detection', 'credit-assessment']
-    },
-    manual: {
-        ...BASE_CONFIG,
-        horizon: 'month',
-        maxResults: 100, // Soft limit: 100 papers
-        minRelevanceScore: 5, // 1-10 scale
-        focusAreas: ['risk-management', 'compliance', 'fraud-detection', 'credit-assessment', 'market-risk', 'trading']
     },
     pipeline: {
         ...BASE_CONFIG,
@@ -166,23 +160,18 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
             query: searchQuery,
             sources: sources.length,
             since: sinceDate?.toISOString(),
-            to: toDate?.toISOString()
+            to: toDate?.toISOString(),
+            limit: opts.maxResults
         });
 
-        const rawResults = await searchOnline(searchQuery, sinceDate, toDate, sources);
+        const rawResults = await searchOnline(searchQuery, sinceDate, toDate, sources, opts.maxResults);
         
-        // Apply soft max results limit (get more for filtering, but respect limit)
-        const searchLimit = opts.maxResults ? opts.maxResults * 3 : undefined; // Get 3x for filtering
-        const limitedResults = searchLimit 
-            ? rawResults.slice(0, searchLimit)
-            : rawResults;
-        
-        logger.debug(`Found ${rawResults.length} raw results, processing ${limitedResults.length}`);
+        logger.debug(`Found ${rawResults.length} raw results`);
 
         // Step 5: Check database for duplicates
         const { newResults, duplicates } = opts.skipDuplicates !== false
-            ? await filterDuplicates(limitedResults)
-            : { newResults: limitedResults, duplicates: [] };
+            ? await filterDuplicates(rawResults)
+            : { newResults: rawResults, duplicates: [] };
         
         logger.debug(`After duplicate check: ${newResults.length} new, ${duplicates.length} duplicates`);
 
@@ -227,7 +216,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
 
         logger.info(`Collection limits applied`, {
             rawFound: rawResults.length,
-            afterSearchLimit: limitedResults.length,
+            afterSearchLimit: rawResults.length,
             afterDuplicateFilter: newResults.length,
             afterLLMFilter: filteredResults.length,
             finalLimit: finalResults.length,
@@ -375,7 +364,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
             filteredCount: newResults.length - finalResults.length,
             stats: {
                 rawFound: rawResults.length,
-                afterSearchLimit: limitedResults.length,
+                afterSearchLimit: rawResults.length,
                 afterDuplicateFilter: newResults.length,
                 afterLLMFilter: filteredResults.length,
                 finalSaved: savedPapers.length
@@ -407,35 +396,33 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
 }
 
 /**
- * Run auto-collection with default settings
- * Uses 1-week time range by default
+ * Run auto-collection with settings from config/collection.json
+ * Uses autoTimeRangeDays and autoDefaultQuery from config
  */
 export async function runAutoCollection(overrideQuery?: string): Promise<CollectionResult> {
-    // Use current system date
+    // Load configuration
+    const config = await loadCollectionConfig();
+    
+    // Use config values
+    const timeRangeDays = config.autoTimeRangeDays;
+    const query = overrideQuery || config.autoDefaultQuery;
+    
     const today = new Date();
-    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startDate = new Date(today.getTime() - timeRangeDays * 24 * 60 * 60 * 1000);
+
+    logger.info('Starting auto-collection', { 
+        query, 
+        timeRangeDays,
+        maxResults: config.maxResults 
+    });
 
     return runCollection({
         mode: 'auto',
-        query: overrideQuery,
-        dateFrom: oneWeekAgo.toISOString().split('T')[0],
-        dateTo: today.toISOString().split('T')[0],
-        horizon: 'custom'
-    });
-}
-
-/**
- * Run manual collection - inherits auto mode base conditions
- * Allows user to override specific parameters while keeping defaults
- */
-export async function runManualCollection(
-    query: string,
-    options?: Partial<CollectionOptions>
-): Promise<CollectionResult> {
-    return runCollection({
-        mode: 'manual',
         query,
-        ...options
+        dateFrom: startDate.toISOString().split('T')[0],
+        dateTo: today.toISOString().split('T')[0],
+        horizon: 'custom',
+        maxResults: config.maxResults
     });
 }
 
@@ -446,9 +433,13 @@ export async function runPipelineCollection(
     query: string,
     options?: Partial<CollectionOptions>
 ): Promise<CollectionResult> {
+    // Load configuration for maxResults
+    const config = await loadCollectionConfig();
+    
     return runCollection({
         mode: 'pipeline',
         query,
+        maxResults: config.maxResults,
         ...options
     });
 }
