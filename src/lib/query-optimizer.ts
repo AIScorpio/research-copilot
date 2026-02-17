@@ -108,24 +108,11 @@ export async function optimizeQuery(
         ? await getQueryOptimizationPrompt()
         : getFallbackQueryOptimizationPrompt();
 
-    const prompt = `Optimize the following query for banking/AI research collection:
+    const prompt = `Optimize the following query:
 
 Original Query: "${query}"
 
-Strictness Level: ${(opts.strictness || 'relaxed').toUpperCase()}
-
-Generate a RELAXED Boolean query:
-- Use OR between related terms
-- AND with banking/finance terms
-- NOT to exclude irrelevant domains
-- NO database-specific syntax (no 'all:', no 'cat:')
-
-Return a JSON object:
-{
-    "optimizedQuery": "The Boolean query string",
-    "bankingSpecificTerms": ["term1", "term2", "term3", "term4", "term5"],
-    "rationale": "Brief explanation"
-}`;
+Strictness Level: ${(opts.strictness || 'relaxed').toUpperCase()}`;
 
     try {
         const response = await generateJSONWithFallback<{

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { generateTags } from '@/lib/llm';
+import { generateTagsWithLLM } from '@/lib/tag-generator';
 import { handleError, createNotFoundError } from '@/lib/error-handler';
 
 export async function POST(
@@ -18,19 +18,18 @@ export async function POST(
             return NextResponse.json(handled, { status: handled.statusCode });
         }
 
-        // Use LLM to extract research topics from paper
-        const suggestedTags = await generateTags(paper.title, paper.abstract || '');
-
-        // Filter out tags that already exist on this paper
         const existingTags = await prisma.paperTag.findMany({
             where: { paperId: id },
             include: { tag: true }
         });
-        const existingNames = new Set(existingTags.map((pt) => pt.tag.name.toLowerCase()));
+        const existingNames = existingTags.map((pt) => pt.tag.name);
 
-        const newSuggestions = suggestedTags
-            .filter(t => !existingNames.has(t.toLowerCase()))
-            .map(name => ({ name, type: "Academic" }));
+        const tagResult = await generateTagsWithLLM(paper.title, paper.abstract || '', existingNames);
+
+        const existingNamesSet = new Set(existingNames.map(n => n.toLowerCase()));
+        const newSuggestions = tagResult.tags
+            .filter(t => !existingNamesSet.has(t.name.toLowerCase()))
+            .map(t => ({ name: t.name, type: t.type }));
 
         console.log('[Auto-Tag] Final suggestions:', newSuggestions);
 

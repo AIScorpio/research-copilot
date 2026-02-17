@@ -84,19 +84,15 @@ export async function generateTagsWithLLM(
     try {
         const systemPrompt = await getTagSuggestionPrompt();
 
-        const prompt = `Generate tags for this banking AI research paper:
+        const existingTagsNote = existingTags?.length 
+            ? `\nExisting tags (avoid duplicates): ${existingTags.join(', ')}` 
+            : '';
+
+        const prompt = `Generate tags for the following paper:
 
 TITLE: ${title}
 
-ABSTRACT: ${abstract || 'No abstract available'}
-
-${existingTags?.length ? `EXISTING TAGS (avoid duplicates): ${existingTags.join(', ')}` : ''}
-
-IMPORTANT: Follow the output format strictly. Each tag must have:
-- name: lowercase-with-dashes
-- category: one of (ai-technology, business-area, risk-category, regulatory, methodology)
-
-Return ONLY the JSON array, no markdown formatting.`;
+ABSTRACT: ${abstract || 'No abstract available'}${existingTagsNote}`;
 
         logger.info('[TagGenerator] Calling LLM for tag generation', { title: title.substring(0, 50) });
 

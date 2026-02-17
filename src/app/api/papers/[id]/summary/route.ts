@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { generateSummary } from '@/lib/llm';
+import { generateSummary } from '@/lib/summary-generator';
 import { handleError, createNotFoundError } from '@/lib/error-handler';
 
 export async function POST(

@@ -89,65 +89,53 @@ async function getContentAssessmentPrompt(): Promise<string> {
  * Fallback content assessment prompt
  */
 function getFallbackContentAssessmentPrompt(): string {
-    return `Role: Banking AI Research Content Evaluation Expert
+    return `Role: Banking AI Content Evaluation Expert
 
-Task: Evaluate paper/news content relevance to banking AI research with strict precision criteria
+Task: Evaluate paper relevance to banking AI research based on EXPLICIT content only
 
-## Evaluation Dimensions (0-10 scale each)
+## Evaluation Dimensions (0-10 scale)
 
 1. **Technical Relevance** (weight: 30%)
-   - Does it involve AI/ML/DL technologies applicable to banking?
-   - How advanced and innovative is the technology for financial use cases?
-   - Is the methodology sound and reproducible?
+   - AI/ML technology sophistication and innovation
+   - Methodology soundness and reproducibility
 
 2. **Business Relevance** (weight: 40%)
-   - Is it targeting specific banking business scenarios?
-   - Does it cover risk/compliance/credit/anti-fraud core areas?
-   - Does it have practical application value in financial institutions?
-   - Does it address regulatory requirements (Basel, IFRS 9, AML)?
+   - Is banking/finance EXPLICITLY mentioned as application domain?
+   - Does it address banking-specific problems?
+   - Score based on EXPLICIT content only, NOT potential applications
 
 3. **Timeliness** (weight: 10%)
-   - Is it recent research (last 3 years for foundational, last 1 year for cutting-edge)?
-   - Does it involve latest technology trends applicable to banking?
+   - Recency of research
 
 4. **Practicality** (weight: 20%)
-   - Does it have experimental validation or real-world case studies?
-   - Does it provide reproducible methods with clear metrics?
-   - Are there implementation considerations for banking environments?
+   - Experimental validation or real-world case studies
+   - Reproducible methods with clear metrics
 
-## Scoring Criteria
-- 9-10: Highly relevant, strongly recommended (clear banking + AI + practical application + regulatory alignment)
-- 7-8: Relevant, worth including (finance + AI with clear use case, or banking + advanced analytics)
-- 5-6: Partially relevant, optional (AI technology with transferable banking application but not explicitly demonstrated)
-- 3-4: Weak relevance (pure technology without banking context, or pure banking business without AI)
-- 1-2: Not relevant (completely outside domain)
+## Business Relevance Scoring (CRITICAL - Score STRICTLY)
+- 9-10: Paper explicitly addresses banking/finance with clear use cases
+- 7-8: Paper explicitly mentions finance/banking applications
+- 5-6: Paper mentions financial keywords in financial context
+- 3-4: Pure technology without EXPLICIT financial context
+- 1-2: Completely outside domain (medical, gaming, physics primary application)
 
-## Strict Exclusion Criteria (Auto-Reject)
-- Pure physics/astrophysics applications
-- Pure theoretical CS without financial application
-- Cryptocurrency speculation without regulatory/risk focus
-- Medical/healthcare applications
-- Gaming/entertainment focused
+## IMPORTANT Rules
+- Score Business based on EXPLICIT content only
+- \"Stress testing\" in non-financial context = Business score 3-4
+- Technical sophistication does NOT justify higher Business score
 
 ## Output Format (JSON)
 {
-  "total_score": 7.5,
-  "dimension_scores": {
+  "isRelevant": true,
+  "confidence": 0.8,
+  "reasoning": "Brief explanation",
+  "matchedCategories": ["category1"],
+  "dimensionScores": {
     "technical": 8,
-    "business": 8,
-    "timeliness": 7,
-    "practicality": 7
-  },
-  "reasoning": "Brief explanation of scoring rationale focusing on banking applicability",
-  "recommendation": "accept" | "reject",
-  "tags": ["suggested tag 1", "suggested tag 2"],
-  "banking_use_cases": ["specific banking application scenario 1", "scenario 2"]
-}
-
-## Acceptance Threshold
-total_score >= 6.0 AND business >= 6.0 AND technical >= 5.0
-
-Rejection overrides: If business < 4.0 OR contains exclusion criteria topics`;
+    "business": 4,
+    "timeliness": 8,
+    "practicality": 5
+  }
+}`;
 }
 
 // Banking and AI keywords for quick pre-filtering
@@ -196,43 +184,11 @@ export async function checkContentRelevance(
         ? await getContentAssessmentPrompt()
         : getFallbackContentAssessmentPrompt();
 
-    const prompt = `Evaluate the relevance of this content for banking AI research:
+    const prompt = `Evaluate the following paper:
 
 TITLE: ${title}
 
-ABSTRACT: ${abstract || 'No abstract available'}
-
-Evaluation Requirements:
-1. Assess relevance to banking/financial services (business value)
-2. Assess technical sophistication and AI/ML methodology
-3. Assess timeliness and current relevance
-4. Assess practical applicability in banking
-5. Identify specific application areas (risk, compliance, trading, etc.)
-6. Check against exclusion criteria (physics, pure CS, crypto speculation, medical, gaming)
-
-IMPORTANT: Return dimension scores as 1-10 (not 0-100). Use the following scale:
-- 1-3: Low relevance/poor quality
-- 4-6: Moderate relevance/average quality  
-- 7-8: High relevance/good quality
-- 9-10: Excellent relevance/outstanding quality
-
-Return a JSON object with this structure:
-{
-    "isRelevant": true/false,
-    "confidence": 0.0-1.0,
-    "reasoning": "Brief explanation of the scoring rationale",
-    "matchedCategories": ["category1", "category2"],
-    "dimensionScores": {
-        "technical": 1-10,
-        "business": 1-10,
-        "timeliness": 1-10,
-        "practicality": 1-10
-    }
-}
-
-Note: Total relevance score will be calculated as weighted average:
-- Technical (30%) + Business (40%) + Timeliness (10%) + Practicality (20%)
-- Papers with total score < 5 will be filtered out`;
+ABSTRACT: ${abstract || 'No abstract available'}`;
 
     try {
         const result = await generateJSONWithFallback<ContentRelevanceResult>(prompt, systemPrompt);
@@ -242,12 +198,20 @@ Note: Total relevance score will be calculated as weighted average:
         
         // Calculate weighted total relevance score from dimensionScores (1-10 scale)
         const dims = result.dimensionScores;
-        const weightedTotal = (
+        let weightedTotal = (
             dims.technical * 0.30 +
             dims.business * 0.40 +
             dims.timeliness * 0.10 +
             dims.practicality * 0.20
         );
+        
+        // Technical Excellence Bonus: if business <= 4 but technical >= 8,
+        // apply 1.05x multiplier for technical innovation value
+        const technicalBonusApplied = dims.business <= 4 && dims.technical >= 8;
+        if (technicalBonusApplied) {
+            weightedTotal = weightedTotal * 1.05;
+        }
+        
         result.relevanceScore = weightedTotal;
         
         // Override isRelevant based on threshold (>= 5)
@@ -256,8 +220,27 @@ Note: Total relevance score will be calculated as weighted average:
         logger.debug('Content relevance check complete', { 
             title: title.substring(0, 50),
             score: result.relevanceScore,
-            isRelevant: result.isRelevant
+            isRelevant: result.isRelevant,
+            technicalBonusApplied
         });
+
+        console.log('[CONTENT-ASSESSMENT]', JSON.stringify({
+            title: title.substring(0, 80),
+            technical: dims.technical,
+            business: dims.business,
+            timeliness: dims.timeliness,
+            practicality: dims.practicality,
+            rawTotal: (
+                dims.technical * 0.30 +
+                dims.business * 0.40 +
+                dims.timeliness * 0.10 +
+                dims.practicality * 0.20
+            ).toFixed(2),
+            total: weightedTotal.toFixed(2),
+            technicalBonus: technicalBonusApplied ? 1.05 : 1,
+            isRelevant: result.isRelevant,
+            reasoning: result.reasoning?.substring(0, 100)
+        }));
 
         return result;
 
