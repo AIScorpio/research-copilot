@@ -39,6 +39,7 @@ interface Paper {
     businessScore?: number;
     timelinessScore?: number;
     practicalityScore?: number;
+    technicalBonusApplied?: boolean;
 }
 
 export function PaperCard({ paper }: { paper: Paper }) {
@@ -253,9 +254,9 @@ export function PaperCard({ paper }: { paper: Paper }) {
 Technical: ${paper.technicalScore?.toFixed(1) || 'N/A'}
 Business: ${paper.businessScore?.toFixed(1) || 'N/A'}
 Timeliness: ${paper.timelinessScore?.toFixed(1) || 'N/A'}
-Practicality: ${paper.practicalityScore?.toFixed(1) || 'N/A'}`}
+Practicality: ${paper.practicalityScore?.toFixed(1) || 'N/A'}${paper.technicalBonusApplied ? '\n⚡ Technical Excellence Bonus: +5%' : ''}`}
                             >
-                                {paper.relevanceScore.toFixed(1)} ★
+                                {paper.relevanceScore.toFixed(1)} ★{paper.technicalBonusApplied ? ' ⚡' : ''}
                             </span>
                             <span>•</span>
                         </>

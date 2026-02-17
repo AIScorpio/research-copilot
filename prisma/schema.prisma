@@ -80,6 +80,7 @@ model Paper {
   timelinessScore   Float?          // Timeliness score (0-10)
   practicalityScore Float?          // Practicality score (0-10)
   assessmentReason  String?         // LLM reasoning for scores
+  technicalBonusApplied Boolean @default(false) // Whether 1.05x technical excellence bonus was applied
   tags              PaperTag[]
   favoritedBy       UserFavorite[]
   userTags          UserTag[]

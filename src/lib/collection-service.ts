@@ -241,16 +241,11 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                 const timelinessScore = dimScores.timeliness;
                 const practicalityScore = dimScores.practicality;
                 
-                // Calculate total relevance score as weighted average of dimensions
-                // Weights: Technical 30%, Business 40%, Timeliness 10%, Practicality 20%
-                const normalizedTotal = (
-                    technicalScore * 0.30 +
-                    businessScore * 0.40 +
-                    timelinessScore * 0.10 +
-                    practicalityScore * 0.20
-                );
+                // Use relevanceScore from content-filter (already includes bonus if applicable)
+                const normalizedTotal = relevance.relevanceScore;
+                const technicalBonusApplied = relevance.technicalBonusApplied || false;
                 
-                logger.info(`[WEIGHTS] ${result.title.substring(0, 40)}... | Total: ${normalizedTotal.toFixed(2)} | Tech: ${technicalScore}×0.30=${(technicalScore*0.30).toFixed(2)} | Biz: ${businessScore}×0.40=${(businessScore*0.40).toFixed(2)} | Time: ${timelinessScore}×0.10=${(timelinessScore*0.10).toFixed(2)} | Pract: ${practicalityScore}×0.20=${(practicalityScore*0.20).toFixed(2)}`);
+                logger.info(`[WEIGHTS] ${result.title.substring(0, 40)}... | Total: ${normalizedTotal.toFixed(2)} | Tech: ${technicalScore} | Biz: ${businessScore} | Time: ${timelinessScore} | Pract: ${practicalityScore} | Bonus: ${technicalBonusApplied ? '1.05x' : 'none'}`);
                 
                 // Infer sourceType from source name
                 const sourceType = await inferSourceTypeFromName(result.source);
@@ -271,7 +266,8 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                         businessScore: businessScore,
                         timelinessScore: timelinessScore,
                         practicalityScore: practicalityScore,
-                        assessmentReason: relevance.reasoning
+                        assessmentReason: relevance.reasoning,
+                        technicalBonusApplied: technicalBonusApplied
                     }
                 });
                 

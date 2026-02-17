@@ -433,3 +433,104 @@ See `config/prompts.json` for current prompt definitions.
 ## Appendix B: Validation Log
 
 See server logs from 2026-02-17 12:44:XX for detailed assessment records.
+
+---
+
+## 10. Technical Bonus Implementation (2026-02-17 Update)
+
+### 10.1 Database Schema
+
+**File**: `prisma/schema.prisma`
+
+```prisma
+model Paper {
+  ...
+  technicalBonusApplied Boolean @default(false) // Whether 1.05x bonus was applied
+}
+```
+
+**Migration**: `20260217103155_add_technical_bonus_field`
+
+### 10.2 Content Filter Changes
+
+**File**: `src/lib/content-filter.ts`
+
+```typescript
+export interface ContentRelevanceResult {
+    ...
+    technicalBonusApplied?: boolean; // Whether 1.05x bonus was applied
+}
+
+// In checkContentRelevance function:
+const technicalBonusApplied = dims.business <= 4 && dims.technical >= 8;
+if (technicalBonusApplied) {
+    weightedTotal = weightedTotal * 1.05;
+}
+result.relevanceScore = weightedTotal;
+result.technicalBonusApplied = technicalBonusApplied;
+```
+
+### 10.3 Collection Service Changes
+
+**File**: `src/lib/collection-service.ts`
+
+```typescript
+// Before (recalculated score without bonus):
+const normalizedTotal = (
+    technicalScore * 0.30 +
+    businessScore * 0.40 +
+    timelinessScore * 0.10 +
+    practicalityScore * 0.20
+);
+
+// After (uses score from content-filter which includes bonus):
+const normalizedTotal = relevance.relevanceScore;
+const technicalBonusApplied = relevance.technicalBonusApplied || false;
+
+// Save to database:
+const paper = await prisma.paper.create({
+    data: {
+        ...
+        relevanceScore: normalizedTotal,
+        technicalBonusApplied: technicalBonusApplied
+    }
+});
+```
+
+### 10.4 Frontend Changes
+
+**Paper Card** (`src/components/papers/paper-card.tsx`):
+
+1. Added `technicalBonusApplied?: boolean` to Paper interface
+2. Display ⚡ icon when bonus applied: `{paper.relevanceScore.toFixed(1)} ★{paper.technicalBonusApplied ? ' ⚡' : ''}`
+3. Tooltip shows bonus: `⚡ Technical Excellence Bonus: +5%`
+
+**Paper Detail** (`src/app/papers/[id]/page.tsx`):
+
+Added new "Assessment Scores" section between Actions and Tags:
+
+```
+Assessment Scores
+─────────────────────
+Technical:      9/10
+Business:       2/10
+Timeliness:     7/10
+Practicality:   3/10
+─────────────────────
+Base Score:     4.80
+Technical Bonus: +5% ⚡ (if applicable)
+Final Score:    5.04/10
+```
+
+### 10.5 Legacy Data Handling
+
+| Data Type | `technicalBonusApplied` | `relevanceScore` | Notes |
+|-----------|-------------------------|------------------|-------|
+| Old data (pre-fix) | `false` | raw score (no bonus) | Automatically set by default |
+| New data (no bonus) | `false` | raw score | Correct |
+| New data (with bonus) | `true` | raw score × 1.05 | Correct |
+
+Old papers that should have received bonus will NOT be retroactively updated. This is acceptable as:
+1. The bonus is applied at collection time
+2. Retroactive updates would require complex data migration
+3. The visual indication is primarily for newly collected papers

@@ -11,7 +11,7 @@ import { join } from 'path';
 
 export interface ContentRelevanceResult {
     isRelevant: boolean;
-    relevanceScore: number; // 1-10, calculated from dimensionScores
+    relevanceScore: number; // 1-10, calculated from dimensionScores (includes bonus if applicable)
     confidence: number; // 0-1
     reasoning: string;
     matchedCategories: string[];
@@ -21,6 +21,7 @@ export interface ContentRelevanceResult {
         timeliness: number; // 1-10
         practicality: number; // 1-10
     };
+    technicalBonusApplied?: boolean; // Whether 1.05x bonus was applied
 }
 
 export interface ContentFilterOptions {
@@ -213,6 +214,7 @@ ABSTRACT: ${abstract || 'No abstract available'}`;
         }
         
         result.relevanceScore = weightedTotal;
+        result.technicalBonusApplied = technicalBonusApplied;
         
         // Override isRelevant based on threshold (>= 5)
         result.isRelevant = weightedTotal >= 5;

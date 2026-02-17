@@ -92,6 +92,54 @@ export default async function PaperDetailPage({
                         </div>
                     </div>
 
+                    {paper.relevanceScore !== null && paper.relevanceScore !== undefined && (
+                        <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                            <h3 className="font-semibold mb-3">Assessment Scores</h3>
+                            <div className="text-sm space-y-1.5">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Technical:</span>
+                                    <span className="font-medium">{paper.technicalScore?.toFixed(1) ?? 'N/A'}/10</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Business:</span>
+                                    <span className="font-medium">{paper.businessScore?.toFixed(1) ?? 'N/A'}/10</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Timeliness:</span>
+                                    <span className="font-medium">{paper.timelinessScore?.toFixed(1) ?? 'N/A'}/10</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Practicality:</span>
+                                    <span className="font-medium">{paper.practicalityScore?.toFixed(1) ?? 'N/A'}/10</span>
+                                </div>
+                                <div className="border-t my-2"></div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Base Score:</span>
+                                    <span className="font-medium">
+                                        {paper.technicalBonusApplied 
+                                            ? (paper.relevanceScore / 1.05).toFixed(2) 
+                                            : paper.relevanceScore.toFixed(2)}
+                                    </span>
+                                </div>
+                                {paper.technicalBonusApplied && (
+                                    <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                        <span>Technical Bonus:</span>
+                                        <span className="font-medium">+5% ⚡</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between pt-1 border-t font-semibold">
+                                    <span>Final Score:</span>
+                                    <span className={
+                                        paper.relevanceScore >= 8 ? 'text-green-600 dark:text-green-400' :
+                                        paper.relevanceScore >= 6 ? 'text-yellow-600 dark:text-yellow-400' :
+                                        paper.relevanceScore >= 5 ? 'text-orange-600 dark:text-orange-400' :
+                                        'text-red-600 dark:text-red-400'
+                                    }>{paper.relevanceScore.toFixed(2)}/10</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <CustomTags
                             paperId={paper.id}
