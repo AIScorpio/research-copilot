@@ -338,7 +338,7 @@ export function TechnologyRadar() {
                                         
                                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                                             {paper.publicationDate && (
-                                                <span>{new Date(paper.publicationDate).toLocaleDateString('zh-CN')}</span>
+                                                <span>{new Date(paper.publicationDate).toLocaleDateString('en-US')}</span>
                                             )}
                                             
                                             {(paper.relevanceScore || paper.technicalScore || paper.businessScore) && (
