@@ -32,6 +32,10 @@ export default function CollectionSettings() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [inputValues, setInputValues] = useState({
+        autoTimeRangeDays: String(DEFAULT_CONFIG.autoTimeRangeDays),
+        maxResults: String(DEFAULT_CONFIG.maxResults)
+    });
 
     useEffect(() => {
         loadConfig();
@@ -43,6 +47,10 @@ export default function CollectionSettings() {
             const data = await response.json();
             if (data.success && data.config) {
                 setConfig(data.config);
+                setInputValues({
+                    autoTimeRangeDays: String(data.config.autoTimeRangeDays),
+                    maxResults: String(data.config.maxResults)
+                });
             }
         } catch (error) {
             console.error('Failed to load collection config:', error);
@@ -81,10 +89,20 @@ export default function CollectionSettings() {
 
     const handleReset = () => {
         setConfig(DEFAULT_CONFIG);
+        setInputValues({
+            autoTimeRangeDays: String(DEFAULT_CONFIG.autoTimeRangeDays),
+            maxResults: String(DEFAULT_CONFIG.maxResults)
+        });
         setMessage({ type: 'success', text: 'Reset to default values (not saved)' });
     };
 
     const handleNumberChange = (field: 'autoTimeRangeDays' | 'maxResults', value: string) => {
+        setInputValues(prev => ({ ...prev, [field]: value }));
+        
+        if (value === '') {
+            return;
+        }
+
         const numValue = parseInt(value, 10);
         if (!isNaN(numValue) && numValue >= 1) {
             const hardLimit = field === 'autoTimeRangeDays' 
@@ -94,6 +112,13 @@ export default function CollectionSettings() {
             if (numValue <= hardLimit) {
                 setConfig(prev => ({ ...prev, [field]: numValue }));
             }
+        }
+    };
+
+    const handleNumberBlur = (field: 'autoTimeRangeDays' | 'maxResults') => {
+        const value = inputValues[field];
+        if (value === '' || isNaN(parseInt(value, 10))) {
+            setInputValues(prev => ({ ...prev, [field]: String(config[field]) }));
         }
     };
 
@@ -133,8 +158,9 @@ export default function CollectionSettings() {
                                 type="number"
                                 min={1}
                                 max={config.constraints.autoTimeRangeDaysHardLimit}
-                                value={config.autoTimeRangeDays}
+                                value={inputValues.autoTimeRangeDays}
                                 onChange={(e) => handleNumberChange('autoTimeRangeDays', e.target.value)}
+                                onBlur={() => handleNumberBlur('autoTimeRangeDays')}
                             />
                             <p className="text-xs text-muted-foreground">
                                 Max: {config.constraints.autoTimeRangeDaysHardLimit} days
@@ -175,8 +201,9 @@ export default function CollectionSettings() {
                                 type="number"
                                 min={1}
                                 max={config.constraints.maxResultsHardLimit}
-                                value={config.maxResults}
+                                value={inputValues.maxResults}
                                 onChange={(e) => handleNumberChange('maxResults', e.target.value)}
+                                onBlur={() => handleNumberBlur('maxResults')}
                             />
                             <p className="text-xs text-muted-foreground">
                                 Applied to both Auto Collection and Pipeline mode. Max: {config.constraints.maxResultsHardLimit}
