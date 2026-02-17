@@ -216,7 +216,7 @@ export function TechnologyRadar() {
                     <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
                         NEW
                     </Badge>
-                    <span className="text-xs text-muted-foreground">首次出现</span>
+                    <span className="text-xs text-muted-foreground">First appeared</span>
                 </div>
             );
         }
@@ -225,17 +225,17 @@ export function TechnologyRadar() {
         if (isSevenDays) {
             return (
                 <div className="flex items-center gap-3">
-                    {formatTrend(vsLastWeek, 'vs 上周')}
+                    {formatTrend(vsLastWeek, 'vs Last Week')}
                 </div>
             );
         }
 
         // For other periods, show both metrics
-        const selectedPeriodLabel = `vs 前${dataDays}天`;
+        const selectedPeriodLabel = `vs Last ${dataDays} Days`;
         return (
             <div className="flex items-center gap-3">
                 {formatTrend(vsSelectedPeriod, selectedPeriodLabel)}
-                {formatTrend(vsLastWeek, 'vs 上周')}
+                {formatTrend(vsLastWeek, 'vs Last Week')}
             </div>
         );
     };
