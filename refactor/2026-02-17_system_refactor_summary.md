@@ -8,6 +8,7 @@ Today's work focused on comprehensive LLM prompt optimization for the research p
 - 4 LLM prompt modules optimized (Content Assessment, Summary Generation, Tag Suggestion, Query Optimization)
 - Technical Excellence Bonus (1.05x) implemented with frontend display
 - Database cleaned: 205 dirty papers removed, 7 clean papers preserved
+- Tags regenerated: 231 legacy tags removed, 22 new tags with correct categories
 - All Chinese text in Tech Radar replaced with English
 
 ---
@@ -180,14 +181,85 @@ Contains full data for 7 papers including:
 ### 4.2 Statistics
 
 - **Papers**: 7
-- **Tags**: 231 (all preserved for future use)
-- **PaperTags**: 30 associations
+- **Tags**: 22 (regenerated with correct categories)
+- **PaperTags**: 28 associations
+
+### 4.3 Tags by Category
+
+| Category | Count | Tags |
+|----------|-------|------|
+| **ai-technology** | 11 | large-language-models, reinforcement-learning, optimization, transformers, natural-language-processing, computer-vision, multi-task-learning, boosting, ensemble-methods, deep-learning, multi-agent-systems |
+| **methodology** | 7 | bias-mitigation, actor-critic, clustering, benchmark, empirical-risk-minimization, non-convex-optimization, regression |
+| **business-area** | 2 | model-governance, trading |
+| **risk-category** | 2 | model-risk, cyber-risk |
+| **regulatory** | 0 | - |
 
 ---
 
-## 5. Bug Fixes
+## 5. Tag Cleanup and Regeneration
 
-### 5.1 Collection Settings Input
+### 5.1 Problem
+
+After database cleanup, 231 legacy tags remained with:
+- Inconsistent category naming ("Risk Management" vs "risk-category")
+- Invalid categories ("banking", "uncategorized", null)
+- Tags forced to banking category for non-banking papers
+
+### 5.2 Analysis
+
+Backup file contained 30 tags across 7 papers, but 10 had invalid categories:
+- `banking` (3 tags): Should be `ai-technology`
+- `uncategorized` (5 tags): Mixed categories
+- `Risk Management` (1 tag): Should be `ai-technology` or `methodology`
+- `null` (1 tag): Missing category
+
+### 5.3 Decision
+
+Complete tag reset and regeneration using optimized tag taxonomy.
+
+### 5.4 Execution
+
+| Operation | Count |
+|-----------|-------|
+| PaperTags deleted | 30 |
+| Tags deleted | 231 |
+| New Tags created | 22 |
+| PaperTag associations | 28 |
+
+### 5.5 Tag Generation Rules Applied
+
+Following the optimized `tagSuggestion` prompt:
+1. Tags MUST accurately reflect paper content
+2. Do NOT force banking/finance tags if paper does not mention them
+3. Category MUST be one of: ai-technology, business-area, risk-category, regulatory, methodology
+4. Non-banking papers use only ai-technology/methodology tags
+
+### 5.6 Result
+
+**Paper Tags (Final):**
+
+| Paper | Tags |
+|-------|------|
+| 1. LLMs in Finance | model-risk[risk-category], bias-mitigation[methodology], model-governance[business-area], large-language-models[ai-technology] |
+| 2. Hamiltonian Flow RL | actor-critic[methodology], optimization[ai-technology], reinforcement-learning[ai-technology], trading[business-area] |
+| 3. Transformer Trust | computer-vision[ai-technology], transformers[ai-technology], model-risk[risk-category], natural-language-processing[ai-technology] |
+| 4. Multi-task Boosting | ensemble-methods[ai-technology], clustering[methodology], boosting[ai-technology], multi-task-learning[ai-technology] |
+| 5. Drug Scouting | deep-learning[ai-technology], benchmark[methodology], multi-agent-systems[ai-technology], large-language-models[ai-technology] |
+| 6. Topological ERM | optimization[ai-technology], empirical-risk-minimization[methodology], regression[methodology], non-convex-optimization[methodology] |
+| 7. Long Context LLMs | transformers[ai-technology], benchmark[methodology], cyber-risk[risk-category], large-language-models[ai-technology] |
+
+**Key Changes:**
+- `large-language-models`: `banking` → `ai-technology`
+- `reinforcement-learning`: `Risk Management` → `ai-technology`
+- `natural-language-processing`: `uncategorized` → `ai-technology`
+- `computer-vision`: `uncategorized` → `ai-technology`
+- Non-banking papers (3, 4, 5, 6): No forced banking tags
+
+---
+
+## 6. Bug Fixes
+
+### 6.1 Collection Settings Input
 
 **Problem:** Number inputs couldn't be cleared when editing.
 
@@ -195,7 +267,7 @@ Contains full data for 7 papers including:
 
 **File:** `src/components/settings/collection-settings.tsx`
 
-### 5.2 Tech Radar Chinese Text
+### 6.2 Tech Radar Chinese Text
 
 **Problem:** Trend labels showed Chinese text ("vs 上周", "首次出现").
 
@@ -209,7 +281,7 @@ Contains full data for 7 papers including:
 
 ---
 
-## 6. Commits
+## 7. Commits
 
 | Commit | Message |
 |--------|---------|
@@ -219,10 +291,12 @@ Contains full data for 7 papers including:
 | `ebc7903` | fix: allow clearing number inputs in Collection Settings |
 | `b7d3f66` | fix: use English date format in Tech Radar paper list |
 | `2296633` | fix: replace all Chinese text with English in Tech Radar trend labels |
+| `3b0ca03` | docs: add system refactor summary for 2026-02-17 |
+| `2354adc` | fix: regenerate tags with correct categories for 7 papers |
 
 ---
 
-## 7. Design Documents
+## 8. Design Documents
 
 | File | Description |
 |------|-------------|
@@ -232,12 +306,12 @@ Contains full data for 7 papers including:
 
 ---
 
-## 8. Next Steps
+## 9. Next Steps
 
 ### Recommended Actions
 
 1. **Monitor New Collections**: Verify optimized prompts work correctly with new paper collections
-2. **Tag Cleanup**: Consider removing unused tags from the 231 preserved tags
+2. ~~**Tag Cleanup**: Consider removing unused tags from the 231 preserved tags~~ ✅ Done
 3. **Validation**: Run end-to-end validation on new collections to ensure:
    - Content Assessment scores are accurate
    - Tags match paper content
@@ -253,7 +327,7 @@ Contains full data for 7 papers including:
 
 ---
 
-## 9. Key Files Reference
+## 10. Key Files Reference
 
 ### Configuration
 - `config/prompts.json` - All LLM prompts (golden source)
