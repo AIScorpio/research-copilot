@@ -206,9 +206,10 @@ ABSTRACT: ${abstract || 'No abstract available'}`;
             dims.practicality * 0.20
         );
         
-        // Technical Excellence Bonus: if business <= 4 but technical >= 8,
-        // apply 1.05x multiplier for technical innovation value
-        const technicalBonusApplied = dims.business <= 4 && dims.technical >= 8;
+        // Technical Excellence Bonus: if technical >= 9 and 2 <= business <= 4
+        // This rewards technically excellent papers that have some business relevance
+        // but not strong enough to pass on their own
+        const technicalBonusApplied = dims.technical >= 9 && dims.business >= 2 && dims.business <= 4;
         if (technicalBonusApplied) {
             weightedTotal = weightedTotal * 1.05;
         }

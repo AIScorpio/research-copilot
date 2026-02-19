@@ -349,3 +349,29 @@ Following the optimized `tagSuggestion` prompt:
 ---
 
 *Document generated: 2026-02-17*
+
+---
+
+## Technical Excellence Bonus 条件更新 (2026-02-19)
+
+### 原条件
+```
+technical >= 8 AND business <= 4
+```
+
+### 问题
+- Business = 1 的论文也可能获得 bonus，导致完全不相关的论文被收录
+- 条件过于宽松
+
+### 新条件
+```
+technical >= 9 AND business >= 2 AND business <= 4
+```
+
+### 说明
+- Technical >= 9：技术必须非常强
+- Business >= 2：必须有一定业务相关性（不能完全不相关）
+- Business <= 4：业务相关性不够强，需要 bonus 帮助通过阈值
+
+### 修改文件
+- `src/lib/content-filter.ts` 第209-214行
