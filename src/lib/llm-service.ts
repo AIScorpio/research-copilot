@@ -107,7 +107,110 @@ abstract class BaseProvider implements LLMProviderInterface {
                 // Continue to recovery attempts
             }
             
-            // Attempt 1: Find JSON array or object in text
+            // Attempt 1: Extract balanced JSON array (handles commentary with brackets)
+            const extractBalancedArray = (txt: string): string | null => {
+                const startIndex = txt.indexOf('[');
+                if (startIndex === -1) return null;
+                
+                let depth = 0;
+                let inString = false;
+                let escape = false;
+                
+                for (let i = startIndex; i < txt.length; i++) {
+                    const char = txt[i];
+                    
+                    if (escape) {
+                        escape = false;
+                        continue;
+                    }
+                    
+                    if (char === '\\') {
+                        escape = true;
+                        continue;
+                    }
+                    
+                    if (char === '"') {
+                        inString = !inString;
+                        continue;
+                    }
+                    
+                    if (!inString) {
+                        if (char === '[' || char === '{') {
+                            depth++;
+                        } else if (char === ']' || char === '}') {
+                            depth--;
+                            if (depth === 0 && char === ']') {
+                                return txt.substring(startIndex, i + 1);
+                            }
+                        }
+                    }
+                }
+                
+                return null;
+            };
+            
+            // Try balanced array extraction first (more robust)
+            const balancedArray = extractBalancedArray(cleanText);
+            if (balancedArray) {
+                try {
+                    return JSON.parse(balancedArray) as T;
+                } catch (e) {
+                    // Continue to legacy attempts
+                }
+            }
+            
+            // Attempt 2: Extract balanced JSON object
+            const extractBalancedObject = (txt: string): string | null => {
+                const startIndex = txt.indexOf('{');
+                if (startIndex === -1) return null;
+                
+                let depth = 0;
+                let inString = false;
+                let escape = false;
+                
+                for (let i = startIndex; i < txt.length; i++) {
+                    const char = txt[i];
+                    
+                    if (escape) {
+                        escape = false;
+                        continue;
+                    }
+                    
+                    if (char === '\\') {
+                        escape = true;
+                        continue;
+                    }
+                    
+                    if (char === '"') {
+                        inString = !inString;
+                        continue;
+                    }
+                    
+                    if (!inString) {
+                        if (char === '{' || char === '[') {
+                            depth++;
+                        } else if (char === '}' || char === ']') {
+                            depth--;
+                            if (depth === 0 && char === '}') {
+                                return txt.substring(startIndex, i + 1);
+                            }
+                        }
+                    }
+                }
+                
+                return null;
+            };
+            
+            const balancedObject = extractBalancedObject(cleanText);
+            if (balancedObject) {
+                try {
+                    return JSON.parse(balancedObject) as T;
+                } catch (e) {
+                    // Continue
+                }
+            }
+            
+            // Attempt 3: Legacy regex fallback (for edge cases)
             const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
             const objectMatch = cleanText.match(/\{[\s\S]*\}/);
             
@@ -127,7 +230,7 @@ abstract class BaseProvider implements LLMProviderInterface {
                 }
             }
             
-            // Attempt 2: Try to fix truncated JSON array
+            // Attempt 4: Try to fix truncated JSON array
             if (cleanText.includes('[') && !cleanText.trim().endsWith(']')) {
                 // Try closing unclosed brackets
                 let fixed = cleanText;
