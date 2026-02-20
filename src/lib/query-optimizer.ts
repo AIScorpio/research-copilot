@@ -6,13 +6,12 @@
 import { join } from 'path';
 import { promises as fs } from 'fs';
 import { logger } from './logger';
-import { generateJSONWithFallback, isLLMConfigured } from './llm-service';
+import { generateTextWithFallback, isLLMConfigured } from './llm-service';
 
 export interface OptimizedQuery {
     originalQuery: string;
     optimizedQuery: string;
-    bankingSpecificTerms: string[];
-    rationale: string;
+    source: 'llm' | 'fallback';
 }
 
 export interface QueryOptimizationOptions {
@@ -65,26 +64,33 @@ async function getQueryOptimizationPrompt(): Promise<string> {
  * Fallback prompt for query optimization
  */
 function getFallbackQueryOptimizationPrompt(): string {
-    return `Role: Banking AI Research Search Optimization Expert
+    return `Role: Banking AI Query Optimization Expert
 
-Task: Optimize user search queries for academic databases with RELAXED format for maximum recall
+Task: Transform user input into a Boolean query for ArXiv/Semantic Scholar
 
-## Query Structure (RELAXED - Maximum Recall):
-- Use OR between related terms for broad coverage
-- Structure: (term1 OR term2 OR term3) AND (banking OR finance OR risk) NOT (exclusions)
-- NO 'all:' prefix, NO 'cat:' categories, NO field-specific syntax
-- Keep it simple and generic for all academic databases
+## Query Structure (ALWAYS use this)
+(Tech Terms) AND (Domain Terms) AND ("banking" OR "financial") NOT (Exclusions)
 
-## Banking-Specific Terminology
-- Risk: credit risk, fraud detection, AML, Basel, IFRS 9, stress testing
-- Tech: machine learning, deep learning, neural networks, NLP
-- Business: compliance, regulatory, trading, portfolio optimization
+## Rules
 
-## Examples
-- Input: "credit risk"
-- Output: (credit risk OR default prediction OR PD modeling) AND (banking OR finance) NOT (medical OR astrophysics)
+1. **Tech Terms**: Expand the input with synonyms and variants
+   - "GNN" → "graph neural network" OR "GNN" OR "graph convolution"
+   - "LLM" → "large language model" OR "LLM" OR "transformer" OR "GPT"
 
-Return ONLY the optimized Boolean query string.`;
+2. **Domain Terms**: Select 2-4 banking applications RELEVANT to the tech
+   - GNN → "AML" OR "fraud detection" OR "transaction network"
+   - LLM → "compliance" OR "regulatory" OR "risk assessment"
+   - Generic → "credit risk" OR "fraud detection" OR "compliance"
+
+3. **Exclusions**: Select domains that ALSO use this tech (NOT banking)
+   - GNN → "molecular" OR "drug" OR "social network"
+   - LLM → "creative writing" OR "gaming" OR "translation"
+   - Generic → "medical" OR "quantum" OR "astrophysics"
+
+4. **Industry**: Always use "banking" OR "financial"
+
+## Output
+Return ONLY the Boolean query string. No explanations. No JSON.`;
 }
 
 /**
@@ -99,7 +105,7 @@ export async function optimizeQuery(
 
     // Check if LLM is configured
     if (!isLLMConfigured()) {
-        logger.debug('LLM not configured, using fallback', { query });
+        logger.info('[QUERY-OPT] LLM not configured, using fallback', { query });
         return getFallbackOptimization(query, opts);
     }
 
@@ -115,26 +121,26 @@ Original Query: "${query}"
 Strictness Level: ${(opts.strictness || 'relaxed').toUpperCase()}`;
 
     try {
-        const response = await generateJSONWithFallback<{
-            optimizedQuery: string;
-            bankingSpecificTerms: string[];
-            rationale: string;
-        }>(prompt, systemPrompt);
-
-        logger.debug('Query optimization complete', {
+        const optimizedQuery = await generateTextWithFallback(prompt, systemPrompt);
+        
+        const trimmedQuery = optimizedQuery.trim();
+        
+        logger.info('[QUERY-OPT] Source: llm', {
             original: query,
-            optimized: response.optimizedQuery
+            optimized: trimmedQuery.substring(0, 100) + (trimmedQuery.length > 100 ? '...' : '')
         });
 
         return {
             originalQuery: query,
-            optimizedQuery: response.optimizedQuery,
-            bankingSpecificTerms: response.bankingSpecificTerms,
-            rationale: response.rationale
+            optimizedQuery: trimmedQuery,
+            source: 'llm' as const
         };
 
     } catch (error) {
-        logger.warn('LLM query optimization failed, using fallback', { query, error });
+        logger.warn('[QUERY-OPT] LLM failed, using fallback', { 
+            query, 
+            error: (error as Error).message 
+        });
         return getFallbackOptimization(query, opts);
     }
 }
@@ -146,30 +152,22 @@ function getFallbackOptimization(
     query: string,
     _options: QueryOptimizationOptions
 ): OptimizedQuery {
-    const bankingTerms = [
-        'credit risk',
-        'fraud detection',
-        'AML',
-        'compliance',
-        'Basel',
-        'IFRS 9',
-        'stress testing'
-    ];
-
-    // RELAXED: Split query and use OR
     const queryTerms = query.split(/\s+/).filter(t => t.length > 2 && t !== 'AND' && t !== 'OR');
     const expandedQuery = queryTerms.length > 1
         ? queryTerms.join(' OR ')
         : query;
 
-    // RELAXED: Simple generic format for ALL data sources
     const optimizedQuery = `(${expandedQuery} OR machine learning OR deep learning) AND (banking OR finance OR credit OR risk) NOT (astrophysics OR quantum OR medical)`;
+
+    logger.info('[QUERY-OPT] Source: fallback', {
+        original: query,
+        optimized: optimizedQuery.substring(0, 100) + (optimizedQuery.length > 100 ? '...' : '')
+    });
 
     return {
         originalQuery: query,
         optimizedQuery,
-        bankingSpecificTerms: bankingTerms,
-        rationale: 'RELAXED fallback: OR-based terms for maximum recall across all sources'
+        source: 'fallback' as const
     };
 }
 

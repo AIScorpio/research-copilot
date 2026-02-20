@@ -1,0 +1,306 @@
+[
+  {
+    "paper": {
+      "id": "0759ebf4-f328-4cdb-90f8-b81b85c05c3d",
+      "title": "Evaluating LLMs in Finance Requires Explicit Bias Consideration",
+      "abstract": "Large Language Models (LLMs) are increasingly integrated into financial workflows, but evaluation practice has not kept up. Finance-specific biases can inflate performance, contaminate backtests, and make reported results useless for any deployment claim. We identify five recurring biases in financial LLM applications. They include look-ahead bias, survivorship bias, narrative bias, objective bias, and cost bias. These biases break financial tasks in distinct ways and they often compound to create an illusion of validity. We reviewed 164 papers from 2023 to 2025 and found that no single bias is discussed in more than 28 percent of studies. This position paper argues that bias in financial LLM systems requires explicit attention and that structural validity should be enforced before any result is used to support a deployment claim. We propose a Structural Validity Framework and an evaluation checklist with minimal requirements for bias diagnosis and future system design. The material is available at https://github.com/Eleanorkong/Awesome-Financial-LLM-Bias-Mitigation.",
+      "url": "http://arxiv.org/abs/2602.14233v1",
+      "source": "ArXiv",
+      "sourceType": "academic",
+      "publicationDate": "2026-02-15T17:02:01.000Z",
+      "collectedAt": "2026-02-17T09:25:26.130Z",
+      "aiSummary": "The paper identifies five recurring biases—look-ahead, survivorship, narrative, objective, and cost—that can invalidate LLM evaluations in finance, and finds that among 164 recent papers none of these biases is discussed in more than 28 % of the studies.  \nTo enforce structural validity, the authors propose a framework and checklist for explicit bias diagnosis before any deployment claim is made.",
+      "relevanceScore": 9.200000000000001,
+      "technicalScore": 8,
+      "businessScore": 10,
+      "timelinessScore": 10,
+      "practicalityScore": 9,
+      "assessmentReason": "Paper explicitly focuses on financial LLM applications with direct banking relevance. Identifies specific biases in financial workflows, reviews 164 financial LLM papers, and provides practical framework for bias mitigation in financial AI systems.",
+      "technicalBonusApplied": false
+    },
+    "tags": [
+      {
+        "name": "model-governance",
+        "type": "Industrial",
+        "category": "business-area"
+      },
+      {
+        "name": "large-language-models",
+        "type": "Academic",
+        "category": "banking"
+      },
+      {
+        "name": "model-risk",
+        "type": "Industrial",
+        "category": "uncategorized"
+      },
+      {
+        "name": "bias-mitigation",
+        "type": "Industrial",
+        "category": "methodology"
+      }
+    ]
+  },
+  {
+    "paper": {
+      "id": "fa455091-529c-4819-9d01-a076eab35dc8",
+      "title": "Decoupled Continuous-Time Reinforcement Learning via Hamiltonian Flow",
+      "abstract": "Many real-world control problems, ranging from finance to robotics, evolve in continuous time with non-uniform, event-driven decisions. Standard discrete-time reinforcement learning (RL), based on fixed-step Bellman updates, struggles in this setting: as time gaps shrink, the $Q$-function collapses to the value function $V$, eliminating action ranking. Existing continuous-time methods reintroduce action information via an advantage-rate function $q$. However, they enforce optimality through complicated martingale losses or orthogonality constraints, which are sensitive to the choice of test processes. These approaches entangle $V$ and $q$ into a large, complex optimization problem that is difficult to train reliably. To address these limitations, we propose a novel decoupled continuous-time actor-critic algorithm with alternating updates: $q$ is learned from diffusion generators on $V$, and $V$ is updated via a Hamiltonian-based value flow that remains informative under infinitesimal time steps, where standard max/softmax backups fail. Theoretically, we prove rigorous convergence via new probabilistic arguments, sidestepping the challenge that generator-based Hamiltonians lack Bellman-style contraction under the sup-norm. Empirically, our method outperforms prior continuous-time and leading discrete-time baselines across challenging continuous-control benchmarks and a real-world trading task, achieving 21% profit over a single quarter$-$nearly doubling the second-best method.",
+      "url": "http://arxiv.org/abs/2602.14587v1",
+      "source": "ArXiv",
+      "sourceType": "academic",
+      "publicationDate": "2026-02-16T09:35:25.000Z",
+      "collectedAt": "2026-02-17T09:25:26.665Z",
+      "aiSummary": "The paper explicitly mentions 'finance' and 'real-world trading task' with a specific profit metric (21% over a quarter), making it directly applicable to financial trading. While the primary focus is on continuous-time RL methodology, the explicit trading application and performance metric justify inclusion.",
+      "relevanceScore": 8,
+      "technicalScore": 9,
+      "businessScore": 7,
+      "timelinessScore": 9,
+      "practicalityScore": 8,
+      "assessmentReason": "The paper explicitly mentions 'finance' and 'real-world trading task' with a specific profit metric (21% over a quarter), making it directly applicable to financial trading. While the primary focus is on continuous-time RL methodology, the explicit trading application and performance metric justify inclusion.",
+      "technicalBonusApplied": false
+    },
+    "tags": [
+      {
+        "name": "continuous-control",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "actor-critic",
+        "type": "Industrial",
+        "category": "methodology"
+      },
+      {
+        "name": "optimization",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "trading",
+        "type": "Industrial",
+        "category": "business-area"
+      },
+      {
+        "name": "reinforcement-learning",
+        "type": "Academic",
+        "category": "Risk Management"
+      }
+    ]
+  },
+  {
+    "paper": {
+      "id": "059b3cde-fb89-48dd-ac55-bd7efec4c8db",
+      "title": "In Transformer We Trust? A Perspective on Transformer Architecture Failure Modes",
+      "abstract": "Transformer architectures have revolutionized machine learning across a wide range of domains, from natural language processing to scientific computing. However, their growing deployment in high-stakes applications, such as computer vision, natural language processing, healthcare, autonomous systems, and critical areas of scientific computing including climate modeling, materials discovery, drug discovery, nuclear science, and robotics, necessitates a deeper and more rigorous understanding of their trustworthiness. In this work, we critically examine the foundational question: \\textitHow trustworthy are transformer models?} We evaluate their reliability through a comprehensive review of interpretability, explainability, robustness against adversarial attacks, fairness, and privacy. We systematically examine the trustworthiness of transformer-based models in safety-critical applications spanning natural language processing, computer vision, and science and engineering domains, including robotics, medicine, earth sciences, materials science, fluid dynamics, nuclear science, and automated theorem proving; highlighting high-impact areas where these architectures are central and analyzing the risks associated with their deployment. By synthesizing insights across these diverse areas, we identify recurring structural vulnerabilities, domain-specific risks, and open research challenges that limit the reliable deployment of transformers.",
+      "url": "http://arxiv.org/abs/2602.14318v1",
+      "source": "ArXiv",
+      "sourceType": "academic",
+      "publicationDate": "2026-02-15T21:57:14.000Z",
+      "collectedAt": "2026-02-17T09:25:27.237Z",
+      "aiSummary": "This paper critically examines the trustworthiness of transformer models through a comprehensive review of interpretability, explainability, robustness, fairness, and privacy. The authors systematically evaluate the reliability of transformer-based models in safety-critical applications across domains such as natural language processing, computer vision, and science and engineering. The paper identifies recurring structural vulnerabilities and domain-specific risks in high-stakes applications, including healthcare, autonomous systems, climate modeling, and robotics, highlighting the need for further research to ensure reliable deployment of transformers.",
+      "relevanceScore": 7.100000000000001,
+      "technicalScore": 10,
+      "businessScore": 6,
+      "timelinessScore": 5,
+      "practicalityScore": 6,
+      "assessmentReason": "Fallback heuristic scoring based on keyword matching",
+      "technicalBonusApplied": false
+    },
+    "tags": [
+      {
+        "name": "transformers",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "natural-language-processing",
+        "type": "Industrial",
+        "category": "uncategorized"
+      },
+      {
+        "name": "computer-vision",
+        "type": "Industrial",
+        "category": "uncategorized"
+      },
+      {
+        "name": "pattern-recognition",
+        "type": "Industrial",
+        "category": "uncategorized"
+      }
+    ]
+  },
+  {
+    "paper": {
+      "id": "4ef6d820-951e-4d3d-af85-486876097f7b",
+      "title": "Robust multi-task boosting using clustering and local ensembling",
+      "abstract": "Multi-Task Learning (MTL) aims to boost predictive performance by sharing information across related tasks, yet conventional methods often suffer from negative transfer when unrelated or noisy tasks are forced to share representations. We propose Robust Multi-Task Boosting using Clustering and Local Ensembling (RMB-CLE), a principled MTL framework that integrates error-based task clustering with local ensembling. Unlike prior work that assumes fixed clusters or hand-crafted similarity metrics, RMB-CLE derives inter-task similarity directly from cross-task errors, which admit a risk decomposition into functional mismatch and irreducible noise, providing a theoretically grounded mechanism to prevent negative transfer. Tasks are grouped adaptively via agglomerative clustering, and within each cluster, a local ensemble enables robust knowledge sharing while preserving task-specific patterns. Experiments show that RMB-CLE recovers ground-truth clusters in synthetic data and consistently outperforms multi-task, single-task, and pooling-based ensemble methods across diverse real-world and synthetic benchmarks. These results demonstrate that RMB-CLE is not merely a combination of clustering and boosting but a general and scalable framework that establishes a new basis for robust multi-task learning.",
+      "url": "http://arxiv.org/abs/2602.14231v1",
+      "source": "ArXiv",
+      "sourceType": "academic",
+      "publicationDate": "2026-02-15T16:59:23.000Z",
+      "collectedAt": "2026-02-17T09:25:27.872Z",
+      "aiSummary": "The paper discusses Multi-Task Learning (MTL) in the context of boosting, clustering, and local ensembling. Although it does not explicitly mention banking or finance as an application domain, it addresses a general problem that could potentially be applied to financial use cases such as credit scoring, risk assessment, or fraud detection. The paper introduces a novel framework for robust multi-task learning that aims to improve predictive performance by sharing information across related tasks ",
+      "relevanceScore": 6.09,
+      "technicalScore": 8,
+      "businessScore": 4,
+      "timelinessScore": 8,
+      "practicalityScore": 5,
+      "assessmentReason": "The paper discusses Multi-Task Learning (MTL) in the context of boosting, clustering, and local ensembling. Although it does not explicitly mention banking or finance as an application domain, it addresses a general problem that could potentially be applied to financial use cases such as credit scoring, risk assessment, or fraud detection. The paper introduces a novel framework for robust multi-task learning that aims to improve predictive performance by sharing information across related tasks while preventing negative transfer between unrelated or noisy tasks. This is relevant to banking AI research since it provides a methodological advancement in the field of MTL which can be adapted to financial applications.",
+      "technicalBonusApplied": true
+    },
+    "tags": [
+      {
+        "name": "boosting",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "ensemble-methods",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "multi-task-learning",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "clustering",
+        "type": "Industrial",
+        "category": "methodology"
+      }
+    ]
+  },
+  {
+    "paper": {
+      "id": "fb30ec51-27ce-42a5-858e-2098a8dcfe8e",
+      "title": "Hunt Globally: Deep Research AI Agents for Drug Asset Scouting in Investing, Business Development, and Search & Evaluation",
+      "abstract": "Bio-pharmaceutical innovation has shifted: many new drug assets now originate outside the United States and are disclosed primarily via regional, non-English channels. Recent data suggests >85% of patent filings originate outside the U.S., with China accounting for nearly half of the global total; a growing share of scholarly output is also non-U.S. Industry estimates put China at ~30% of global drug development, spanning 1,200+ novel candidates. In this high-stakes environment, failing to surface \"under-the-radar\" assets creates multi-billion-dollar risk for investors and business development teams, making asset scouting a coverage-critical competition where speed and completeness drive value. Yet today's Deep Research AI agents still lag human experts in achieving high-recall discovery across heterogeneous, multilingual sources without hallucinations.   We propose a benchmarking methodology for drug asset scouting and a tuned, tree-based self-learning Bioptic Agent aimed at complete, non-hallucinated scouting. We construct a challenging completeness benchmark using a multilingual multi-agent pipeline: complex user queries paired with ground-truth assets that are largely outside U.S.-centric radar. To reflect real deal complexity, we collected screening queries from expert investors, BD, and VC professionals and used them as priors to conditionally generate benchmark queries. For grading, we use LLM-as-judge evaluation calibrated to expert opinions. We compare Bioptic Agent against Claude Opus 4.6, OpenAI GPT-5.2 Pro, Perplexity Deep Research, Gemini 3 Pro + Deep Research, and Exa Websets. Bioptic Agent achieves 79.7% F1 versus 56.2% (Claude Opus 4.6), 50.6% (Gemini 3 Pro + Deep Research), 46.6% (GPT-5.2 Pro), 44.2% (Perplexity Deep Research), and 26.9% (Exa Websets). Performance improves steeply with additional compute, supporting the view that more compute yields better results.",
+      "url": "http://arxiv.org/abs/2602.15019v1",
+      "source": "ArXiv",
+      "sourceType": "academic",
+      "publicationDate": "2026-02-16T18:57:49.000Z",
+      "collectedAt": "2026-02-17T09:25:30.725Z",
+      "aiSummary": "This paper is explicitly focused on drug asset scouting for biopharmaceutical investing and business development. The primary application domain is pharmaceutical/biotech, not banking or financial services. While it mentions 'investors' and 'VC professionals', the context is specifically about discovering drug assets, not financial products or services. The AI technology is applied to multilingual patent and literature search for drug discovery, which is outside the banking domain.",
+      "relevanceScore": 5.775000000000001,
+      "technicalScore": 8,
+      "businessScore": 2,
+      "timelinessScore": 9,
+      "practicalityScore": 7,
+      "assessmentReason": "This paper is explicitly focused on drug asset scouting for biopharmaceutical investing and business development. The primary application domain is pharmaceutical/biotech, not banking or financial services. While it mentions 'investors' and 'VC professionals', the context is specifically about discovering drug assets, not financial products or services. The AI technology is applied to multilingual patent and literature search for drug discovery, which is outside the banking domain.",
+      "technicalBonusApplied": true
+    },
+    "tags": [
+      {
+        "name": "large-language-models",
+        "type": "Academic",
+        "category": "banking"
+      },
+      {
+        "name": "deep-learning",
+        "type": "Academic",
+        "category": "banking"
+      },
+      {
+        "name": "classification",
+        "type": "Industrial",
+        "category": "methodology"
+      },
+      {
+        "name": "predictive-modeling",
+        "type": "Industrial",
+        "category": "uncategorized"
+      },
+      {
+        "name": "business-development",
+        "type": "Industrial",
+        "category": "business-area"
+      }
+    ]
+  },
+  {
+    "paper": {
+      "id": "ab227da7-646e-409d-8acc-8e687cb28eb9",
+      "title": "Topological trivialization in non-convex empirical risk minimization",
+      "abstract": "Given data $\\{({\\boldsymbol x}_i,y_i): i\\le n\\}$, with ${\\boldsymbol x}_i$ standard $d$-dimensional Gaussian feature vectors, and $y_i\\in{\\mathbb R}$ response variables, we study the general problem of learning a model parametrized by ${\\boldsymbol θ}\\in{\\mathbb R}^d$, by minimizing a loss function that depends on ${\\boldsymbol θ}$ via the one-dimensional projections ${\\boldsymbol θ}^{\\sf T}{\\boldsymbol x}_i$. While previous work mostly dealt with convex losses, our approach assumes general (non-convex) losses hence covering classical, yet poorly understood examples such as the perceptron and non-convex robust regression. We use the Kac-Rice formula to control the asymptotics of the expected number of local minima of the empirical risk, under the proportional asymptotics $n,d\\to\\infty$, $n/d\\toα>1$. Specifically, we prove a finite dimensional variational formula for the exponential growth rate of the expected number of local minima. Further we provide sufficient conditions under which the exponential growth rate vanishes and all empirical risk minimizers have the same asymptotic properties (in fact, we expect the minimizer to be unique in these circumstances). We refer to this phenomenon as `rate trivialization.' If the population risk has a unique minimizer, our sufficient condition for rate trivialization is typically verified when the samples/parameters ratio $α$ is larger than a suitable constant $α_{\\star}$. Previous general results of this type required $n\\ge Cd \\log d$. We illustrate our results in the case of non-convex robust regression. Based on heuristic arguments and numerical simulations, we present a conjecture for the exact location of the trivialization phase transition $α_{\\text{tr}}$.",
+      "url": "http://arxiv.org/abs/2602.14969v1",
+      "source": "ArXiv",
+      "sourceType": "academic",
+      "publicationDate": "2026-02-16T17:55:50.000Z",
+      "collectedAt": "2026-02-17T09:25:36.982Z",
+      "aiSummary": "This paper is a pure theoretical/mathematical treatment of non-convex empirical risk minimization using topological methods. While empirical risk minimization is a fundamental concept in machine learning, the paper makes NO explicit mention of banking, finance, credit, risk management, fraud detection, or any financial application. The examples given are generic (perceptron, robust regression) and the mathematical framework is presented as general theory without any financial context. The techni",
+      "relevanceScore": 5.040000000000001,
+      "technicalScore": 9,
+      "businessScore": 2,
+      "timelinessScore": 7,
+      "practicalityScore": 3,
+      "assessmentReason": "This paper is a pure theoretical/mathematical treatment of non-convex empirical risk minimization using topological methods. While empirical risk minimization is a fundamental concept in machine learning, the paper makes NO explicit mention of banking, finance, credit, risk management, fraud detection, or any financial application. The examples given are generic (perceptron, robust regression) and the mathematical framework is presented as general theory without any financial context. The technical sophistication is high but business relevance is minimal due to lack of explicit financial domain connection.",
+      "technicalBonusApplied": true
+    },
+    "tags": [
+      {
+        "name": "empirical-risk-minimization",
+        "type": "Industrial",
+        "category": "methodology"
+      },
+      {
+        "name": "optimization",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "non-convex-optimization",
+        "type": "Industrial",
+        "category": "methodology"
+      },
+      {
+        "name": "minimax-optimization",
+        "type": "Industrial",
+        "category": "methodology"
+      }
+    ]
+  },
+  {
+    "paper": {
+      "id": "38038273-5557-47d8-8411-ddd5da158843",
+      "title": "Long Context, Less Focus: A Scaling Gap in LLMs Revealed through Privacy and Personalization",
+      "abstract": "Large language models (LLMs) are increasingly deployed in privacy-critical and personalization-oriented scenarios, yet the role of context length in shaping privacy leakage and personalization effectiveness remains largely unexplored. We introduce a large-scale benchmark, PAPerBench, to systematically study how increasing context length influences both personalization quality and privacy protection in LLMs. The benchmark comprises approximately 29,000 instances with context lengths ranging from 1K to 256K tokens, yielding a total of 377K evaluation questions. It jointly evaluates personalization performance and privacy risks across diverse scenarios, enabling controlled analysis of long-context model behavior. Extensive evaluations across state-of-the-art LLMs reveal consistent performance degradation in both personalization and privacy as context length increases. We further provide a theoretical analysis of attention dilution under context scaling, explaining this behavior as an inherent limitation of soft attention in fixed-capacity Transformers. The empirical and theoretical findings together suggest a general scaling gap in current models -- long context, less focus. We release the benchmark to support reproducible evaluation and future research on scalable privacy and personalization. Code and data are available at https://github.com/SafeRL-Lab/PAPerBench",
+      "url": "http://arxiv.org/abs/2602.15028v1",
+      "source": "ArXiv",
+      "sourceType": "academic",
+      "publicationDate": "2026-02-16T18:59:42.000Z",
+      "collectedAt": "2026-02-17T09:25:38.913Z",
+      "aiSummary": "Paper focuses on privacy leakage and personalization in LLMs with increasing context length. No explicit mention of banking, finance, credit, fraud, compliance, or any financial domain. While privacy and personalization could theoretically apply to banking, the paper does not explicitly state any financial application domain. Primary focus is on general LLM behavior analysis.",
+      "relevanceScore": 5,
+      "technicalScore": 7,
+      "businessScore": 2,
+      "timelinessScore": 9,
+      "practicalityScore": 6,
+      "assessmentReason": "Paper focuses on privacy leakage and personalization in LLMs with increasing context length. No explicit mention of banking, finance, credit, fraud, compliance, or any financial domain. While privacy and personalization could theoretically apply to banking, the paper does not explicitly state any financial application domain. Primary focus is on general LLM behavior analysis.",
+      "technicalBonusApplied": false
+    },
+    "tags": [
+      {
+        "name": "privacy",
+        "type": "Industrial",
+        "category": "business-area"
+      },
+      {
+        "name": "large-language-models",
+        "type": "Academic",
+        "category": "banking"
+      },
+      {
+        "name": "transformers",
+        "type": "Industrial",
+        "category": "ai-technology"
+      },
+      {
+        "name": "benchmark",
+        "type": "Industrial",
+        "category": "methodology"
+      }
+    ]
+  }
+]

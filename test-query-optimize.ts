@@ -18,8 +18,8 @@ async function testQueries() {
         
         try {
             const result = await optimizeQuery(query);
+            console.log('Source:', result.source);
             console.log('Optimized:', result.optimizedQuery.substring(0, 100) + '...');
-            console.log('Terms:', result.bankingSpecificTerms.slice(0, 5).join(', '));
         } catch (error) {
             console.log('Error:', (error as Error).message);
         }

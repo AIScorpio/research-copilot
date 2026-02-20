@@ -144,10 +144,10 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                 optimizedQuery = await optimizeQuery(searchQuery, optimizationOptions);
                 searchQuery = optimizedQuery.optimizedQuery;
                 
-                logger.debug('Query optimized', { 
+                logger.info('[COLLECTION] Query optimized', { 
                     original: optimizedQuery.originalQuery,
-                    optimized: optimizedQuery.optimizedQuery,
-                    rationale: optimizedQuery.rationale
+                    optimized: optimizedQuery.optimizedQuery.substring(0, 100) + (optimizedQuery.optimizedQuery.length > 100 ? '...' : ''),
+                    source: optimizedQuery.source
                 });
             } catch (error) {
                 errors.push(`Query optimization failed: ${(error as Error).message}`);

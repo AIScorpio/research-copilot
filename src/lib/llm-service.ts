@@ -26,8 +26,8 @@ const DEFAULT_MODELS: Record<LLMProvider, string> = {
     anthropic: 'claude-3-haiku-20240307',
     ollama: 'llama3.2',
     lmstudio: 'local-model',
-    zhipuai: 'glm-4',
-    kimi: 'moonshot-v1-8k',
+    zhipuai: 'glm-4.7',
+    kimi: 'moonshot-v1-32k',
     baidu: 'ernie-bot-4',
     alibaba: 'qwen-max'
 };
@@ -80,7 +80,7 @@ abstract class BaseProvider implements LLMProviderInterface {
     constructor(config: LLMConfig) {
         this.config = {
             temperature: 0.3,
-            maxTokens: 1000,
+            maxTokens: 2000,
             ...config
         };
     }
@@ -96,10 +96,72 @@ abstract class BaseProvider implements LLMProviderInterface {
 
     protected parseJSON<T>(text: string): T {
         try {
-            // Try to extract JSON from markdown code blocks
+            // Try to extract JSON from markdown code blocks first
             const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-            const cleanText = jsonMatch ? jsonMatch[1].trim() : text.trim();
-            return JSON.parse(cleanText) as T;
+            let cleanText = jsonMatch ? jsonMatch[1].trim() : text.trim();
+            
+            // Try direct parse
+            try {
+                return JSON.parse(cleanText) as T;
+            } catch (e) {
+                // Continue to recovery attempts
+            }
+            
+            // Attempt 1: Find JSON array or object in text
+            const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
+            const objectMatch = cleanText.match(/\{[\s\S]*\}/);
+            
+            if (arrayMatch) {
+                try {
+                    return JSON.parse(arrayMatch[0]) as T;
+                } catch (e) {
+                    // Continue
+                }
+            }
+            
+            if (objectMatch) {
+                try {
+                    return JSON.parse(objectMatch[0]) as T;
+                } catch (e) {
+                    // Continue
+                }
+            }
+            
+            // Attempt 2: Try to fix truncated JSON array
+            if (cleanText.includes('[') && !cleanText.trim().endsWith(']')) {
+                // Try closing unclosed brackets
+                let fixed = cleanText;
+                const openBrackets = (fixed.match(/\[/g) || []).length;
+                const closeBrackets = (fixed.match(/\]/g) || []).length;
+                const openBraces = (fixed.match(/\{/g) || []).length;
+                const closeBraces = (fixed.match(/\}/g) || []).length;
+                
+                // Close missing brackets/braces
+                for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}';
+                for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']';
+                
+                try {
+                    return JSON.parse(fixed) as T;
+                } catch (e) {
+                    // Continue
+                }
+                
+                // Try removing last incomplete element
+                const lastComma = fixed.lastIndexOf(',');
+                if (lastComma > 0) {
+                    fixed = fixed.substring(0, lastComma);
+                    for (let i = 0; i < (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length; i++) fixed += '}';
+                    fixed += ']';
+                    try {
+                        return JSON.parse(fixed) as T;
+                    } catch (e) {
+                        // Give up
+                    }
+                }
+            }
+            
+            logger.error('LLM JSON parse error after all recovery attempts', { error: 'Unparseable', text: text.substring(0, 300) });
+            throw new Error('Failed to parse LLM response as JSON');
         } catch (error) {
             logger.error('LLM JSON parse error', { error, text: text.substring(0, 200) });
             throw new Error('Failed to parse LLM response as JSON');
@@ -761,8 +823,8 @@ export async function loadLLMConfigsFromDatabase(userId?: string): Promise<LLMCo
                 apiKey: apiKey || undefined,
                 baseUrl: config.baseUrl || config.provider.baseUrl || undefined,
                 model: defaultModel?.externalId || undefined,
-                temperature: config.userModels[0]?.temperature || 0.3,
-                maxTokens: config.userModels[0]?.maxTokens || 1000
+                temperature: config.userModels[0]?.temperature ?? 0.3,
+                maxTokens: config.userModels[0]?.maxTokens ?? 2000  // 使用 2000 作为默认值
             };
         });
     } catch (error) {
