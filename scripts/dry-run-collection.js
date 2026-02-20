@@ -29,8 +29,16 @@ function loadCollectionConfig() {
 async function searchArxiv(query, since, to, limit = 10) {
     const https = require('https');
     
-    const terms = query.split(/\s+/).filter(t => t.length > 0);
-    let arxivQuery = terms.map(t => `all:${t}`).join('+AND+');
+    // For complex Boolean queries, use directly; for simple queries, wrap with all:
+    let arxivQuery;
+    if (query.includes('AND') || query.includes('OR') || query.includes('NOT') || query.includes('(')) {
+        // Complex Boolean query - use as-is but URL encode
+        arxivQuery = encodeURIComponent(query);
+    } else {
+        // Simple query - wrap terms with all:
+        const terms = query.split(/\s+/).filter(t => t.length > 0);
+        arxivQuery = terms.map(t => `all:${t}`).join('+AND+');
+    }
     
     if (since && to) {
         const formatDate = (d) => {
@@ -42,6 +50,8 @@ async function searchArxiv(query, since, to, limit = 10) {
     }
     
     const url = `https://export.arxiv.org/api/query?search_query=${arxivQuery}&start=0&max_results=${limit}&sortBy=relevance`;
+    
+    console.log('ArXiv URL:', url.substring(0, 200) + '...');
     
     return new Promise((resolve, reject) => {
         https.get(url, (res) => {
@@ -111,10 +121,10 @@ async function runDryRun() {
         
         console.log('Date Range:', since.toISOString().split('T')[0], 'to', to.toISOString().split('T')[0]);
         
-        // Use simple search terms for ArXiv
-        const searchTerms = 'machine learning banking';
+        // Use optimized query for ArXiv search
+        const searchTerms = optimizedQuery.optimizedQuery;
         
-        console.log('Search Terms:', searchTerms);
+        console.log('Search Terms (from optimized query):', searchTerms.substring(0, 100) + '...');
         
         const results = await searchArxiv(searchTerms, since, to, 10); // Limit to 10 for test
         console.log('Results Found:', results.length);

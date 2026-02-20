@@ -1,0 +1,30 @@
+{
+  "globalLevel": "info",
+  "enableFileLogging": true,
+  "enableConsoleLogging": true,
+  "logDirectory": "logs",
+  "maxFileSize": 52428800,
+  "maxFiles": 15,
+  "archiveDirectory": "logs/archive",
+  "archiveRetentionDays": 180,
+  "compressArchive": true,
+  "sanitizeSensitive": true,
+  "sensitiveFields": ["apiKey", "secret", "password", "accessToken", "refreshToken", "credential", "privateKey"],
+  "files": {
+    "app": { "enabled": true, "level": "info", "includeAll": true },
+    "error": { "enabled": true, "level": "error" },
+    "collection": { "enabled": true, "level": "debug" },
+    "llm": { "enabled": true, "level": "debug" },
+    "api": { "enabled": true, "level": "info" },
+    "auth": { "enabled": true, "level": "info" },
+    "config": { "enabled": true, "level": "info" }
+  },
+  "tagToFile": {
+    "COLLECTION": "collection",
+    "LLM": "llm",
+    "API": "api",
+    "AUTH": "auth",
+    "CONFIG": "config",
+    "ERROR": "error"
+  }
+}

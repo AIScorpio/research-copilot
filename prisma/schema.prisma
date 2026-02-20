@@ -11,16 +11,16 @@ model User {
   id               String                   @id @default(uuid())
   email            String                   @unique
   password         String
-  name             String?
-  image            String?
   emailAlerts      Boolean                  @default(false)
   newsletterAlerts Boolean                  @default(false)
   createdAt        DateTime                 @default(now())
+  image            String?
+  name             String?
+  accounts         Account[]
   subscribers      NotificationSubscriber[]
   favorites        UserFavorite[]
+  llmConfigs       UserLLMConfig[]
   tags             UserTag[]
-  accounts         Account[]
-  llmConfigs       UserLLMConfig[] // NEW: User's LLM configurations
 }
 
 model Account {
@@ -64,27 +64,27 @@ model NewsletterLog {
 }
 
 model Paper {
-  id                String          @id @default(uuid())
-  title             String
-  abstract          String?
-  url               String          @unique
-  source            String
-  sourceType        String?         // Source type inferred from Source.type (Academic, Industry, etc.)
-  publicationDate   DateTime
-  collectedAt       DateTime        @default(now())
-  aiSummary         String?
-  deletedAt         DateTime?
-  relevanceScore    Float?          // Total relevance score (0-10)
-  technicalScore    Float?          // Technical relevance (0-10)
-  businessScore     Float?          // Business relevance (0-10)
-  timelinessScore   Float?          // Timeliness score (0-10)
-  practicalityScore Float?          // Practicality score (0-10)
-  assessmentReason  String?         // LLM reasoning for scores
-  technicalBonusApplied Boolean @default(false) // Whether 1.05x technical excellence bonus was applied
-  tags              PaperTag[]
-  favoritedBy       UserFavorite[]
-  userTags          UserTag[]
-  newsletters       NewsletterLog[] @relation("NewsletterLogToPaper")
+  id                    String          @id @default(uuid())
+  title                 String
+  abstract              String?
+  url                   String          @unique
+  source                String
+  sourceType            String?
+  publicationDate       DateTime
+  collectedAt           DateTime        @default(now())
+  aiSummary             String?
+  deletedAt             DateTime?
+  relevanceScore        Float?
+  technicalScore        Float?
+  businessScore         Float?
+  timelinessScore       Float?
+  practicalityScore     Float?
+  assessmentReason      String?
+  technicalBonusApplied Boolean         @default(false)
+  tags                  PaperTag[]
+  favoritedBy           UserFavorite[]
+  userTags              UserTag[]
+  newsletters           NewsletterLog[] @relation("NewsletterLogToPaper")
 
   @@index([publicationDate])
   @@index([source])
@@ -111,8 +111,8 @@ model Tag {
 model PaperTag {
   paperId String
   tagId   String
-  paper   Paper  @relation(fields: [paperId], references: [id])
   tag     Tag    @relation(fields: [tagId], references: [id])
+  paper   Paper  @relation(fields: [paperId], references: [id])
 
   @@id([paperId, tagId])
   @@index([paperId])
@@ -122,8 +122,8 @@ model PaperTag {
 model UserFavorite {
   userId  String
   paperId String
-  user    User   @relation(fields: [userId], references: [id])
   paper   Paper  @relation(fields: [paperId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
 
   @@id([userId, paperId])
 }
@@ -133,9 +133,9 @@ model UserTag {
   userId  String
   paperId String
   tagId   String
-  user    User   @relation(fields: [userId], references: [id])
-  paper   Paper  @relation(fields: [paperId], references: [id])
   tag     Tag    @relation(fields: [tagId], references: [id])
+  paper   Paper  @relation(fields: [paperId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
 
   @@index([paperId])
 }
@@ -144,7 +144,7 @@ model Source {
   id                String             @id @default(uuid())
   name              String             @unique
   displayName       String?
-  url               String             // API endpoint URL (required)
+  url               String
   type              String             @default("academic")
   enabled           Boolean            @default(true)
   requiresAuth      Boolean            @default(false)
@@ -204,73 +204,60 @@ model RegulatoryAlert {
   @@index([createdAt])
 }
 
-// ============================================
-// LLM Provider Management (Phase 2)
-// ============================================
-
-// Base LLM Provider definitions (system-wide)
 model LLMProviderBase {
-  id          String   @id @default(uuid())
-  type        String   @unique // groq, openai, anthropic, ollama, lmstudio, gemini, azure, cohere
-  name        String   // Display name
+  id          String          @id @default(uuid())
+  type        String          @unique
+  name        String
   description String?
-  isCloud     Boolean  @default(true) // true = cloud API, false = local
-  baseUrl     String?  // Default base URL for local providers
-  docsUrl     String?  // Documentation URL
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
+  isCloud     Boolean         @default(true)
+  baseUrl     String?
+  docsUrl     String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   models      LLMModelBase[]
   userConfigs UserLLMConfig[]
-  
+
   @@index([type])
   @@index([isCloud])
 }
 
-// Base LLM Model definitions (system-wide)
 model LLMModelBase {
-  id            String   @id @default(uuid())
+  id            String          @id @default(uuid())
   providerId    String
-  externalId    String   // Provider's model ID (e.g., "gpt-4", "llama-3.3-70b")
-  name          String   // Display name
+  externalId    String
+  name          String
   description   String?
-  contextWindow Int?     // Context window size
-  capabilities  String   // JSON array: ["chat", "vision", "embedding"]
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
-  provider     LLMProviderBase @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  userModels   UserLLMModel[]
-  
+  contextWindow Int?
+  capabilities  String
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  provider      LLMProviderBase @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  userModels    UserLLMModel[]
+
   @@unique([providerId, externalId])
   @@index([providerId])
   @@index([isActive])
 }
 
-// User's LLM Provider Configuration
 model UserLLMConfig {
-  id           String    @id @default(uuid())
+  id           String          @id @default(uuid())
   userId       String
   providerId   String
-  name         String    // User-defined name (e.g., "My Groq Account")
-  apiKey       String?   // Encrypted API key for cloud providers
-  baseUrl      String?   // Custom base URL
-  status       String    @default("untested") // untested, connected, failed
-  errorMessage String?   // Last error message if failed
-  priority     Int       @default(0) // Fallback priority (0 = highest)
-  isEnabled    Boolean   @default(false) // Whether this provider is active
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime? // Soft delete
-  
-  // Relations
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider     LLMProviderBase   @relation(fields: [providerId], references: [id])
+  name         String
+  apiKey       String?
+  baseUrl      String?
+  status       String          @default("untested")
+  errorMessage String?
+  priority     Int             @default(0)
+  isEnabled    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+  provider     LLMProviderBase @relation(fields: [providerId], references: [id])
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userModels   UserLLMModel[]
-  
+
   @@unique([userId, providerId, name])
   @@index([userId])
   @@index([providerId])
@@ -280,24 +267,19 @@ model UserLLMConfig {
   @@index([deletedAt])
 }
 
-// User's enabled LLM Models (junction table with additional config)
 model UserLLMModel {
-  id            String   @id @default(uuid())
-  userConfigId  String
-  modelId       String
-  isDefault     Boolean  @default(false) // Is this the default model for this provider
-  temperature   Float?   // Override temperature
-  maxTokens     Int?     // Override max tokens
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
-  userConfig UserLLMConfig @relation(fields: [userConfigId], references: [id], onDelete: Cascade)
-  model      LLMModelBase  @relation(fields: [modelId], references: [id])
-  
+  id           String        @id @default(uuid())
+  userConfigId String
+  modelId      String
+  isDefault    Boolean       @default(false)
+  temperature  Float?
+  maxTokens    Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  model        LLMModelBase  @relation(fields: [modelId], references: [id])
+  userConfig   UserLLMConfig @relation(fields: [userConfigId], references: [id], onDelete: Cascade)
+
   @@unique([userConfigId, modelId])
   @@index([userConfigId])
   @@index([modelId])
 }
-
-// Note: User model already defined above, relation added to existing model
