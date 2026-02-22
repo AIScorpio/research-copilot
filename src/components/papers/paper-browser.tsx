@@ -23,6 +23,7 @@ interface Paper {
     publicationDate: Date | string;
     collectedAt?: Date | string;
     aiSummary?: string | null;
+    assessmentReason?: string | null;
     favoritedBy?: unknown[];
     tags?: { id: string; name: string; type: string }[];
     relevanceScore?: number;

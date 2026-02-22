@@ -40,6 +40,7 @@ interface Paper {
     timelinessScore?: number;
     practicalityScore?: number;
     technicalBonusApplied?: boolean;
+    assessmentReason?: string | null;
 }
 
 export function PaperCard({ paper }: { paper: Paper }) {
@@ -301,6 +302,14 @@ Practicality: ${paper.practicalityScore?.toFixed(1) || 'N/A'}${paper.technicalBo
                                 hour: '2-digit',
                                 minute: '2-digit'
                             })}</span>
+                            {paper.assessmentReason && (
+                                <span 
+                                    className="cursor-help text-sm" 
+                                    title={`Why Collected:\n${paper.assessmentReason.substring(0, 200)}${paper.assessmentReason.length > 200 ? '...' : ''}`}
+                                >
+                                    ℹ️
+                                </span>
+                            )}
                         </>
                     )}
                 </CardDescription>
