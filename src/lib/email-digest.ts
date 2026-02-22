@@ -100,6 +100,7 @@ export async function generateEmailDigest(config: DigestConfig): Promise<EmailDi
             source: p.source,
             publicationDate: p.publicationDate,
             aiSummary: p.aiSummary || undefined,
+            assessmentReason: p.assessmentReason || undefined,
             tags: p.tags.map(pt => ({ id: pt.tag.id, name: pt.tag.name, type: pt.tag.type }))
         }));
 
@@ -314,6 +315,11 @@ async function generateEmailContent(params: {
                 <div style="background-color: #E8F4F8; padding: 12px; border-radius: 6px; margin-top: 10px;">
                     <p style="margin: 0; font-size: 12px; font-weight: bold; color: #1F4E78; margin-bottom: 5px;">AI Perspective</p>
                     <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #333;">${paper.aiSummary}</p>
+                </div>
+            ` : paper.assessmentReason ? `
+                <div style="background-color: #F0F7F0; padding: 12px; border-radius: 6px; margin-top: 10px;">
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #2E7D32; margin-bottom: 5px;">Why Included</p>
+                    <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #333;">${paper.assessmentReason.substring(0, 300)}${paper.assessmentReason.length > 300 ? '...' : ''}</p>
                 </div>
             ` : ''}
         </div>

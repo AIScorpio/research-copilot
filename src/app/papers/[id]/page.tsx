@@ -68,6 +68,15 @@ export default async function PaperDetailPage({
                         </p>
                     </section>
 
+                    {paper.assessmentReason && (
+                        <section>
+                            <h3 className="text-lg font-semibold mb-3">Why Collected</h3>
+                            <p className="leading-7 text-muted-foreground">
+                                {paper.assessmentReason}
+                            </p>
+                        </section>
+                    )}
+
                     <section>
                         <h3 className="text-lg font-semibold mb-3">AI Perspective</h3>
                         <AISummary

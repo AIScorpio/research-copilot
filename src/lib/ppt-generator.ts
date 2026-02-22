@@ -9,6 +9,7 @@ export interface Paper {
     publicationDate: Date | string;
     tags?: Array<{ id: string; name: string; type: string }>;
     aiSummary?: string | null;
+    assessmentReason?: string | null;
 }
 
 export interface PowerPointExportOptions {
@@ -91,7 +92,7 @@ export async function generatePowerPoint(
         `Total Papers Reviewed: ${selectedPapers.length}`,
         `Date Range: ${getDateRange(selectedPapers)}`,
         `Key Themes: ${getKeyThemes(selectedPapers)}`,
-        `Recommendations: ${selectedPapers.filter(p => p.aiSummary).length} AI-generated insights`
+        `Insights: ${selectedPapers.filter(p => p.aiSummary || p.assessmentReason).length} AI-analyzed papers`
     ];
 
     summaryContent.forEach((text, i) => {
@@ -145,8 +146,11 @@ export async function generatePowerPoint(
             currentY += 0.6;
         }
 
-        if (includeSummary && paper.aiSummary) {
-            slide.addText('AI Summary:', {
+        if (includeSummary && (paper.aiSummary || paper.assessmentReason)) {
+            const summaryLabel = paper.aiSummary ? 'AI Summary:' : 'Why Included:';
+            const summaryText = paper.aiSummary || paper.assessmentReason;
+            
+            slide.addText(summaryLabel, {
                 x: 0.5,
                 y: currentY,
                 w: '90%',
@@ -156,7 +160,7 @@ export async function generatePowerPoint(
             });
             currentY += 0.5;
 
-            const summaryLines = wrapText(paper.aiSummary, 90);
+            const summaryLines = wrapText(summaryText!, 90);
             summaryLines.forEach((line, i) => {
                 if (currentY + (i * 0.4) < 6.5) {
                     slide.addText(line, {

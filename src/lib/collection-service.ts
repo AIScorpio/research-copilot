@@ -260,7 +260,6 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                         sourceType: sourceType,
                         publicationDate: result.publicationDate,
                         collectedAt: new Date(),
-                        aiSummary: relevance.reasoning.substring(0, 500),
                         relevanceScore: normalizedTotal,
                         technicalScore: technicalScore,
                         businessScore: businessScore,
