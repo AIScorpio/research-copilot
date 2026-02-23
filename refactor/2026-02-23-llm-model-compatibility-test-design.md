@@ -1,7 +1,8 @@
 # LLM Model Compatibility Test - System Design Document
 
 **Created**: 2026-02-23
-**Status**: Draft
+**Last Updated**: 2026-02-23
+**Status**: Final
 **Priority**: High
 **Scope**: Holistic design for model discovery, testing, and validation
 
@@ -298,10 +299,12 @@ const apiKey = process.env.ZHIPUAI_API_KEY;
 
 **Provider-Specific Notes**:
 
+> **⚠️ No Hardcoding Rule**: For all cloud providers with a list models API, **always fetch dynamically**. Never hardcode model lists in code - providers frequently add/remove models. Only Anthropic lacks a list endpoint, requiring a manually maintained list.
+
 | Provider | API Endpoint | Auth Source | Notes |
 |----------|--------------|-------------|-------|
 | Groq | `https://api.groq.com/openai/v1/models` | `GROQ_API_KEY` | Filter `active !== false` |
-| ZhipuAI | `https://open.bigmodel.cn/api/paas/v4/models` | `ZHIPUAI_API_KEY` | **Never hardcode** - models change frequently |
+| ZhipuAI | `https://open.bigmodel.cn/api/paas/v4/models` | `ZHIPUAI_API_KEY` | Always fetch from API - models change frequently |
 | Ollama | `{baseUrl}/api/tags` | None (local) | Base URL from DB config |
 | Kimi | `https://api.moonshot.cn/v1/models` | `KIMI_API_KEY` | OpenAI-compatible |
 | OpenAI | `https://api.openai.com/v1/models` | `OPENAI_API_KEY` | Filter to `gpt-*` models |
@@ -893,13 +896,38 @@ logs/
 
 ### Phase 4: Documentation & Cleanup
 
-**Status**: 🔄 IN PROGRESS
+**Status**: ✅ COMPLETED
 
 **Tasks**:
 - [x] Update API documentation
 - [x] Add inline code documentation
-- [ ] Remove dead code
-- [ ] Delete old refactor planning documents
+- [x] Remove dead code (verified - none remaining after Phase 2 refactoring)
+- [x] Delete old refactor planning documents (execution plan deleted)
+
+### Implementation Summary
+
+**Refactoring completed on**: 2026-02-23
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Create Shared Libraries | ✅ COMPLETED |
+| Phase 2 | Update API Routes | ✅ COMPLETED |
+| Phase 3 | Enhance Test Features | ⏸️ DEFERRED |
+| Phase 4 | Documentation & Cleanup | ✅ COMPLETED |
+
+**Key Deliverables**:
+- `src/lib/llm-model-fetcher.ts` - Single source of truth for model discovery
+- `src/lib/llm-provider-client.ts` - Unified LLM invocation client
+- Refactored API routes using shared libraries
+- API keys now exclusively from `.env` (never database)
+- All 3 current providers (Groq, ZhipuAI, Ollama) fully supported
+
+**Deferred Items** (Phase 3 - for future iteration):
+- Test history browser UI
+- Model comparison view
+- Export to CSV/JSON
+- Scheduled test runs
+- Notifications
 
 ---
 
