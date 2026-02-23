@@ -40,8 +40,7 @@ async function main() {
           publicationDate: {
             gte: new Date(currentDateStr),
             lt: new Date(nextDate.toISOString().split('T')[0])
-          },
-          deletedAt: null
+          }
         }
       });
 

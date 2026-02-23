@@ -73,7 +73,6 @@ model Paper {
   publicationDate       DateTime
   collectedAt           DateTime        @default(now())
   aiSummary             String?
-  deletedAt             DateTime?
   relevanceScore        Float?
   technicalScore        Float?
   businessScore         Float?
@@ -90,7 +89,6 @@ model Paper {
   @@index([source])
   @@index([url])
   @@index([collectedAt])
-  @@index([deletedAt])
   @@index([title])
   @@index([sourceType])
   @@index([source, publicationDate], map: "Paper_source_date_idx")

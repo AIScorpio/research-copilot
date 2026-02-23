@@ -578,18 +578,16 @@ export async function getCollectionStats(): Promise<{
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
     const [totalPapers, papersThisWeek, papersThisMonth, lastPaper] = await Promise.all([
-        prisma.paper.count({ where: { deletedAt: null } }),
-        prisma.paper.count({ 
-            where: { 
-                collectedAt: { gte: weekAgo },
-                deletedAt: null 
-            } 
+        prisma.paper.count(),
+        prisma.paper.count({
+            where: {
+                collectedAt: { gte: weekAgo }
+            }
         }),
-        prisma.paper.count({ 
-            where: { 
-                collectedAt: { gte: monthAgo },
-                deletedAt: null 
-            } 
+        prisma.paper.count({
+            where: {
+                collectedAt: { gte: monthAgo }
+            }
         }),
         prisma.paper.findFirst({
             orderBy: { collectedAt: 'desc' },

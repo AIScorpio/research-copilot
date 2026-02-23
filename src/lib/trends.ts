@@ -340,8 +340,7 @@ export async function updateDailyTrendData(): Promise<void> {
           some: {
             tagId: tag.id,
           },
-        },
-        deletedAt: null,
+        }
       },
     });
 
@@ -394,7 +393,6 @@ export async function backfillTrendData(
             gte: currentDate,
             lt: nextDate,
           },
-          deletedAt: null,
           tags: {
             some: {
               tagId: tag.id,

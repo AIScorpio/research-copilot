@@ -74,9 +74,8 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
     ] = await Promise.all([
         // Current period papers (user selected)
         prisma.paper.findMany({
-            where: { 
-                publicationDate: { gte: currentPeriodStart },
-                deletedAt: null
+            where: {
+                publicationDate: { gte: currentPeriodStart }
             },
             include: { 
                 tags: { 
@@ -93,12 +92,11 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
         }),
         // Previous period papers (for trend comparison)
         prisma.paper.findMany({
-            where: { 
-                publicationDate: { 
+            where: {
+                publicationDate: {
                     gte: previousPeriodStart,
-                    lt: currentPeriodStart 
-                },
-                deletedAt: null
+                    lt: currentPeriodStart
+                }
             },
             include: { 
                 tags: { 
@@ -114,9 +112,8 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
         }),
         // Last week papers
         prisma.paper.findMany({
-            where: { 
-                publicationDate: { gte: lastWeekStart },
-                deletedAt: null
+            where: {
+                publicationDate: { gte: lastWeekStart }
             },
             include: { 
                 tags: { 
@@ -132,12 +129,11 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
         }),
         // Previous week papers
         prisma.paper.findMany({
-            where: { 
-                publicationDate: { 
+            where: {
+                publicationDate: {
                     gte: previousWeekStart,
-                    lt: lastWeekStart 
-                },
-                deletedAt: null
+                    lt: lastWeekStart
+                }
             },
             include: { 
                 tags: { 
@@ -153,7 +149,6 @@ export async function generateTechnologyRadar(days: number = 90): Promise<RadarD
         }),
         // All historical papers for "NEW" detection
         prisma.paper.findMany({
-            where: { deletedAt: null },
             include: { 
                 tags: { 
                     include: { tag: true },
