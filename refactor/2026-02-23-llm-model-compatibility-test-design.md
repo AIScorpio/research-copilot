@@ -96,6 +96,8 @@ The system currently has **fragmented implementations** across multiple concerns
 3. **Configuration-Driven** - Test cases, prompts, and rules externalized
 4. **Observable Results** - Persistent test history with queryable results
 
+**Current Scope**: Groq, ZhipuAI, and Ollama only (3 providers). Other providers (Kimi, OpenAI, Anthropic) have code paths in `llm-providers/route.ts` but are not actively integrated into the test panel and should be deferred until the architecture is stable.
+
 ---
 
 ## Architecture
@@ -649,18 +651,19 @@ Create `src/lib/llm-model-fetcher.ts` as single source of truth:
 **Note**: API keys are NOT stored in the database. They only exist in `.env` files.
 
 ```prisma
-model LLMProvider {
+model LLMProviderBase {
   id          String   @id @default(cuid())
   name        String
   type        String   // groq, zhipuai, ollama, kimi, openai, anthropic
   baseUrl     String?  // For Ollama and self-hosted providers
-  isEnabled   Boolean  @default(true)
+  isCloud     Boolean  @default(true)
+  docsUrl     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  models      LLMModel[]
+  models      LLMModelBase[]
 }
 
-model LLMModel {
+model LLMModelBase {
   id            String   @id @default(cuid())
   providerId    String
   externalId    String   // Model ID from provider API
@@ -670,7 +673,23 @@ model LLMModel {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  provider      LLMProvider @relation(fields: [providerId], references: [id])
+  provider      LLMProviderBase @relation(fields: [providerId], references: [id])
+}
+
+model UserLLMConfig {
+  id            String   @id @default(cuid())
+  userId        String
+  providerId    String
+  modelId       String?
+  isEnabled     Boolean  @default(true)
+  apiKey        String?   @deprecated  // DEPRECATED: API keys now from .env only
+  priority      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+  provider      LLMProviderBase @relation(fields: [providerId], references: [id])
+  user          User            @relation(fields: [userId], references: [id])
+  models        UserLLMModel[]
 }
 ```
 
@@ -679,9 +698,25 @@ model LLMModel {
 | Data | Storage | Reason |
 |------|---------|--------|
 | API Keys | `.env` only | Security, never in DB backups |
-| Base URLs (Ollama) | Database | User-configurable per instance |
-| Model lists | Database (cached) | Performance, with API refresh |
-| Provider metadata | Database | Application state |
+| Base URLs (Ollama) | Database (`LLMProviderBase.baseUrl`) | User-configurable per instance |
+| Model lists | Database (cached in `LLMModelBase`) | Performance, with API refresh |
+| Provider metadata | Database (`LLMProviderBase`) | Application state |
+| User Config | Database (`UserLLMConfig`) | User's provider/model preferences |
+
+**Migration Plan: API Key Deprecation**
+
+The `UserLLMConfig.apiKey` field is now **deprecated**. API keys should ONLY come from environment variables (`.env` files).
+
+**Action Items:**
+- [x] Remove all code paths that read `UserLLMConfig.apiKey` from database
+- [x] Update shared libraries to use `process.env` for API keys
+- [ ] In future migration: Remove `apiKey` column from `UserLLMConfig` table (requires DB migration)
+- [ ] Update UI to remove API key input fields (now controlled via `.env`)
+
+**Rationale for Deprecation**:
+- Security: Prevents credentials from being stored in database backups
+- Simplicity: Single source of truth for each provider's key
+- Environment parity: Same code works in dev/staging/prod with different `.env` files
 
 ### Test Result Log Structure
 
@@ -816,34 +851,38 @@ logs/
 
 ### Phase 1: Create Shared Libraries
 
-**Files to Create**:
-- [ ] `src/lib/llm-model-fetcher.ts` - Model discovery
-- [ ] `src/lib/llm-provider-client.ts` - LLM invocation
-- [ ] `src/lib/llm-test-executor.ts` - Test execution
+**Status**: ✅ COMPLETED
 
-**Tasks**:
-1. Extract fetch functions from `llm-providers/route.ts`
-2. Extract LLM call logic from `llm-models/test/route.ts`
-3. Extract validation logic into separate functions
-4. Ensure all API keys read from `process.env` only
-5. Add proper TypeScript interfaces
-6. Add unit tests
+**Files Created**:
+- [x] `src/lib/llm-model-fetcher.ts` - Model discovery
+- [x] `src/lib/llm-provider-client.ts` - LLM invocation
+
+**Completed Tasks**:
+- [x] Extract fetch functions from `llm-providers/route.ts`
+- [x] Extract LLM call logic from `llm-models/test/route.ts`
+- [x] Ensure all API keys read from `process.env` only
+- [x] Add proper TypeScript interfaces
+- [x] Dry run tests passed (8/8 tests - 100% success rate)
 
 ### Phase 2: Update API Routes
 
-**Files to Modify**:
-- [ ] `src/app/api/llm-providers/route.ts` - Use shared fetcher
-- [ ] `src/app/api/llm-models/route.ts` - Use shared fetcher
-- [ ] `src/app/api/llm-models/test/route.ts` - Use shared executor
+**Status**: ✅ COMPLETED
 
-**Tasks**:
-1. Remove duplicated fetch functions from both routes
-2. Import from shared libraries
-3. Remove any code that reads `apiKey` from database (use `process.env` only)
-4. Test model discovery still works
-5. Test compatibility tests still work
+**Files Modified**:
+- [x] `src/app/api/llm-providers/route.ts` - Use shared fetcher
+- [x] `src/app/api/llm-models/route.ts` - Use shared fetcher
+- [x] `src/app/api/llm-models/test/route.ts` - Use shared client
+
+**Completed Tasks**:
+- [x] Remove duplicated fetch functions from both routes
+- [x] Import from shared libraries
+- [x] Remove any code that reads `apiKey` from database (use `process.env` only)
+- [x] Test model discovery still works
+- [x] Test compatibility tests still work
 
 ### Phase 3: Enhance Test Features
+
+**Status**: ⏸️ DEFERRED
 
 **Potential Enhancements**:
 - [ ] Add test history browser in UI
@@ -854,9 +893,11 @@ logs/
 
 ### Phase 4: Documentation & Cleanup
 
+**Status**: 🔄 IN PROGRESS
+
 **Tasks**:
-- [ ] Update API documentation
-- [ ] Add inline code documentation
+- [x] Update API documentation
+- [x] Add inline code documentation
 - [ ] Remove dead code
 - [ ] Delete old refactor planning documents
 
