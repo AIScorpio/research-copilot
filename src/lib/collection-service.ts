@@ -536,13 +536,14 @@ async function filterContentWithLLM(
     options: ContentFilterOptions
 ): Promise<Array<{ result: SearchResult; relevance: ContentRelevanceResult }>> {
     const filtered: Array<{ result: SearchResult; relevance: ContentRelevanceResult }> = [];
-    
+    const rejected: Array<{ result: SearchResult; relevance: ContentRelevanceResult }> = [];
+
     // Process in batches to avoid overwhelming the LLM
     const batchSize = 5;
-    
+
     for (let i = 0; i < results.length; i += batchSize) {
         const batch = results.slice(i, i + batchSize);
-        
+
         const batchPromises = batch.map(async (result) => {
             const relevance = await checkContentRelevance(
                 result.title,
@@ -551,17 +552,44 @@ async function filterContentWithLLM(
             );
             return { result, relevance };
         });
-        
+
         const batchResults = await Promise.all(batchPromises);
-        
+
         // Filter based on relevance
         for (const item of batchResults) {
             if (item.relevance.isRelevant) {
                 filtered.push(item);
+            } else {
+                rejected.push(item);
             }
         }
     }
-    
+
+    // Log rejected papers with details
+    for (const { result, relevance } of rejected) {
+        logger.info('[COLLECTION] Paper rejected', {
+            title: result.title,
+            abstract: result.abstract.substring(0, 200) + (result.abstract.length > 200 ? '...' : ''),
+            relevanceScore: relevance.relevanceScore.toFixed(2),
+            dimensionScores: {
+                technical: relevance.dimensionScores.technical,
+                business: relevance.dimensionScores.business,
+                timeliness: relevance.dimensionScores.timeliness,
+                practicality: relevance.dimensionScores.practicality
+            },
+            reasoning: relevance.reasoning,
+            source: result.source
+        });
+    }
+
+    if (rejected.length > 0) {
+        logger.info('[COLLECTION] Filtering summary', {
+            total: results.length,
+            accepted: filtered.length,
+            rejected: rejected.length
+        });
+    }
+
     // Sort by relevance score
     return filtered.sort((a, b) => b.relevance.relevanceScore - a.relevance.relevanceScore);
 }
