@@ -3,6 +3,7 @@ import { handleError } from '@/lib/error-handler';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/db';
+import { callLLM } from '@/lib/llm-provider-client';
 
 interface TestRequest {
     models: { id: string; provider: string }[];
@@ -59,98 +60,8 @@ function loadTestCaseConfig(): TestCaseConfig {
     return JSON.parse(content);
 }
 
-async function callLLM(provider: string, model: string, systemPrompt: string, userPrompt: string): Promise<{ success: boolean; error: string | null; duration: number; content?: string }> {
-    const startTime = Date.now();
-    
-    try {
-        // Get config for provider-specific settings (e.g., Ollama baseUrl)
-        const config = await prisma.userLLMConfig.findFirst({
-            where: { 
-                provider: { type: provider.toLowerCase() }
-            },
-            include: { provider: true }
-        });
-
-        let apiUrl: string;
-        let headers: Record<string, string> = {};
-        let body: Record<string, unknown>;
-
-        // Build messages array with system + user prompts
-        const messages = [];
-        if (systemPrompt) {
-            messages.push({ role: 'system', content: systemPrompt });
-        }
-        messages.push({ role: 'user', content: userPrompt });
-
-        if (provider.toLowerCase() === 'groq') {
-            const apiKey = process.env.GROQ_API_KEY;
-            if (!apiKey) {
-                return { success: false, error: 'GROQ_API_KEY not configured', duration: Date.now() - startTime };
-            }
-            apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-            headers = {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            };
-            body = {
-                model,
-                messages,
-                max_tokens: 1000,
-                temperature: 0.1
-            };
-        } else if (provider.toLowerCase() === 'ollama') {
-            const baseUrl = config?.provider?.baseUrl || 'http://localhost:11434';
-            apiUrl = `${baseUrl}/api/chat`;
-            body = {
-                model,
-                messages,
-                stream: false
-            };
-        } else if (provider.toLowerCase() === 'zhipuai') {
-            const apiKey = process.env.ZHIPUAI_API_KEY;
-            if (!apiKey) {
-                return { success: false, error: 'ZHIPUAI_API_KEY not configured', duration: Date.now() - startTime };
-            }
-            apiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-            headers = {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            };
-            body = {
-                model,
-                messages,
-                max_tokens: 1000
-            };
-        } else {
-            return { success: false, error: 'Unknown provider', duration: Date.now() - startTime };
-        }
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body)
-        });
-
-        const duration = Date.now() - startTime;
-
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unknown error');
-            return { success: false, error: `HTTP ${response.status}: ${errorText.substring(0, 100)}`, duration };
-        }
-
-        const data = await response.json();
-        
-        // Check if response has valid content
-        const content = data.choices?.[0]?.message?.content;
-        if (!content) {
-            return { success: false, error: 'No response content', duration };
-        }
-
-        return { success: true, error: null, duration, content };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error', duration: Date.now() - startTime };
-    }
-}
+// Use shared callLLM from llm-provider-client
+// This replaces the local implementation
 
 function validateTestResult(testType: string, content: string): { valid: boolean; error: string | null } {
     const config = loadTestCaseConfig();
@@ -386,7 +297,7 @@ export async function POST(request: Request) {
 
                     // Validate the response content
                     let passed = llmResult.success;
-                    let error = llmResult.error;
+                    let error = llmResult.error || null;
 
                     if (llmResult.success && llmResult.content) {
                         const validation = validateTestResult(testType, llmResult.content);
