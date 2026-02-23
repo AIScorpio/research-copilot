@@ -929,6 +929,19 @@ logs/
 - Scheduled test runs
 - Notifications
 
+### Post-Release Bug Fixes
+
+**2026-02-23**: Fixed P2003 Foreign Key Violation in Model Fetcher
+
+| Issue | Details |
+|-------|---------|
+| **Bug** | Type confusion - passing `UserLLMConfig.id` where `LLMProviderBase.id` was expected |
+| **Location** | `src/app/api/llm-providers/route.ts:401-405` |
+| **Symptom** | P2003 foreign key violation when testing Groq or ZhipuAI connections |
+| **Root Cause** | `config.id` used instead of `config.providerId` when calling `fetchAvailableModels()` |
+| **Affected Providers** | Groq, ZhipuAI (Ollama unaffected - doesn't cache models to DB) |
+| **Fix** | Changed `providerId: config.id` → `providerId: config.providerId` |
+
 ---
 
 ## Testing Checklist

@@ -398,10 +398,11 @@ export async function PATCH(request: Request) {
 
                     if (isConnected) {
                         // Build config for shared fetchAvailableModels
+                        // Note: providerId must be LLMProviderBase.id (not UserLLMConfig.id) for FK constraint
                         const fetchConfig: import('@/lib/llm-model-fetcher').FetchModelsConfig =
                             config.provider.type === 'ollama'
-                                ? { baseUrl: config.baseUrl || undefined, providerId: config.id }
-                                : { providerId: config.id };
+                                ? { baseUrl: config.baseUrl || undefined, providerId: config.providerId }
+                                : { providerId: config.providerId };
                         availableModels = await fetchAvailableModels(config.provider.type, fetchConfig);
                     }
                 } catch (error) {
