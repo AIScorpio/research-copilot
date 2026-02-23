@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger';
 import { LLMProviderFactory } from '@/lib/llm-service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { fetchAvailableModels, LLMModelInfo } from '@/lib/llm-model-fetcher';
 
 // Helper function to get API key from environment variables
 function getApiKeyFromEnv(providerType: string): string | undefined {
@@ -396,7 +397,12 @@ export async function PATCH(request: Request) {
                     isConnected = await provider.testConnection();
 
                     if (isConnected) {
-                        availableModels = await fetchAvailableModels(config);
+                        // Build config for shared fetchAvailableModels
+                        const fetchConfig: import('@/lib/llm-model-fetcher').FetchModelsConfig =
+                            config.provider.type === 'ollama'
+                                ? { baseUrl: config.baseUrl || undefined, providerId: config.id }
+                                : { providerId: config.id };
+                        availableModels = await fetchAvailableModels(config.provider.type, fetchConfig);
                     }
                 } catch (error) {
                     isConnected = false;
@@ -598,218 +604,5 @@ async function reorderPriorities(userId: string) {
     }
 }
 
-async function fetchAvailableModels(config: any): Promise<LLMModelInfo[]> {
-    const providerType = config.provider?.type;
-    const apiKey = getApiKeyFromEnv(providerType);
-    
-    // 根据不同 Provider 动态获取模型
-    switch (providerType) {
-        case 'zhipuai':
-            return await fetchZhipuModels(apiKey, config.providerId);
-        case 'groq':
-            return await fetchGroqModels(apiKey, config.providerId);
-        case 'kimi':
-            return await fetchKimiModels(apiKey, config.providerId);
-        case 'openai':
-            return await fetchOpenAIModels(apiKey, config.providerId);
-        case 'anthropic':
-            return await fetchAnthropicModels(apiKey, config.providerId);
-        case 'ollama':
-            // Ollama 已有单独的 API 处理
-            return await fetchOllamaModelsFromDB(config.providerId);
-        default:
-            // 其他 Provider 从数据库读取
-            return await fetchModelsFromDB(config.providerId);
-    }
-}
-
-interface LLMModelInfo {
-    externalId: string;
-    name: string;
-    contextWindow: number;
-    capabilities: string[];
-}
-
-// Zhipu AI 动态获取模型
-async function fetchZhipuModels(apiKey: string | undefined, providerId: string): Promise<LLMModelInfo[]> {
-    if (!apiKey) return await fetchModelsFromDB(providerId);
-    
-    try {
-        const response = await fetch('https://open.bigmodel.cn/api/paas/v4/models', {
-            headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        
-        if (!response.ok) return await fetchModelsFromDB(providerId);
-        
-        const data = await response.json();
-        const models: LLMModelInfo[] = (data.data || []).map((m: any) => ({
-            externalId: m.id,
-            name: m.id, // Zhipu 返回的 name 可能是 id
-            contextWindow: 128000,
-            capabilities: ['chat']
-        }));
-        
-        // 更新数据库
-        await updateModelsInDB(providerId, models);
-        
-        return models;
-    } catch (error) {
-        logger.error('Failed to fetch Zhipu models', { error });
-        return await fetchModelsFromDB(providerId);
-    }
-}
-
-// Groq 动态获取模型
-async function fetchGroqModels(apiKey: string | undefined, providerId: string): Promise<LLMModelInfo[]> {
-    if (!apiKey) return await fetchModelsFromDB(providerId);
-    
-    try {
-        const response = await fetch('https://api.groq.com/openai/v1/models', {
-            headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        
-        if (!response.ok) return await fetchModelsFromDB(providerId);
-        
-        const data = await response.json();
-        const models: LLMModelInfo[] = (data.data || [])
-            .filter((m: any) => m.active !== false)
-            .map((m: any) => ({
-                externalId: m.id,
-                name: m.id,
-                contextWindow: m.context_window || 8192,
-                capabilities: ['chat']
-            }));
-        
-        await updateModelsInDB(providerId, models);
-        
-        return models;
-    } catch (error) {
-        logger.error('Failed to fetch Groq models', { error });
-        return await fetchModelsFromDB(providerId);
-    }
-}
-
-// Kimi 动态获取模型
-async function fetchKimiModels(apiKey: string | undefined, providerId: string): Promise<LLMModelInfo[]> {
-    if (!apiKey) return await fetchModelsFromDB(providerId);
-    
-    try {
-        const response = await fetch('https://api.moonshot.cn/v1/models', {
-            headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        
-        if (!response.ok) return await fetchModelsFromDB(providerId);
-        
-        const data = await response.json();
-        const models: LLMModelInfo[] = (data.data || []).map((m: any) => ({
-            externalId: m.id,
-            name: m.id,
-            contextWindow: m.context_window || 8192,
-            capabilities: ['chat']
-        }));
-        
-        await updateModelsInDB(providerId, models);
-        
-        return models;
-    } catch (error) {
-        logger.error('Failed to fetch Kimi models', { error });
-        return await fetchModelsFromDB(providerId);
-    }
-}
-
-// OpenAI 动态获取模型
-async function fetchOpenAIModels(apiKey: string | undefined, providerId: string): Promise<LLMModelInfo[]> {
-    if (!apiKey) return await fetchModelsFromDB(providerId);
-    
-    try {
-        const response = await fetch('https://api.openai.com/v1/models', {
-            headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        
-        if (!response.ok) return await fetchModelsFromDB(providerId);
-        
-        const data = await response.json();
-        const models: LLMModelInfo[] = (data.data || [])
-            .filter((m: any) => m.id.includes('gpt'))
-            .map((m: any) => ({
-                externalId: m.id,
-                name: m.id,
-                contextWindow: 128000,
-                capabilities: ['chat']
-            }));
-        
-        await updateModelsInDB(providerId, models);
-        
-        return models;
-    } catch (error) {
-        logger.error('Failed to fetch OpenAI models', { error });
-        return await fetchModelsFromDB(providerId);
-    }
-}
-
-// Anthropic 模型（Anthropic 没有 list models API，使用硬编码）
-async function fetchAnthropicModels(apiKey: string | undefined, providerId: string): Promise<LLMModelInfo[]> {
-    const models: LLMModelInfo[] = [
-        { externalId: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, capabilities: ['chat', 'vision'] },
-        { externalId: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', contextWindow: 200000, capabilities: ['chat', 'vision'] },
-        { externalId: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000, capabilities: ['chat', 'vision'] }
-    ];
-    
-    await updateModelsInDB(providerId, models);
-    
-    return models;
-}
-
-// Ollama 从数据库读取（已有单独的动态获取 API）
-async function fetchOllamaModelsFromDB(providerId: string): Promise<LLMModelInfo[]> {
-    return await fetchModelsFromDB(providerId);
-}
-
-// 从数据库读取模型列表
-async function fetchModelsFromDB(providerId: string): Promise<LLMModelInfo[]> {
-    const models = await prisma.lLMModelBase.findMany({
-        where: { providerId, isActive: true }
-    });
-    
-    return models.map(m => ({
-        externalId: m.externalId,
-        name: m.name,
-        contextWindow: m.contextWindow || 8192,
-        capabilities: JSON.parse(m.capabilities || '[]')
-    }));
-}
-
-// 更新数据库中的模型列表（upsert，不删除已存在的）
-async function updateModelsInDB(providerId: string, models: LLMModelInfo[]): Promise<void> {
-    for (const model of models) {
-        // 先查找是否存在
-        const existing = await prisma.lLMModelBase.findFirst({
-            where: { providerId, externalId: model.externalId }
-        });
-        
-        if (existing) {
-            await prisma.lLMModelBase.update({
-                where: { id: existing.id },
-                data: {
-                    name: model.name,
-                    contextWindow: model.contextWindow,
-                    capabilities: JSON.stringify(model.capabilities),
-                    isActive: true
-                }
-            });
-        } else {
-            await prisma.lLMModelBase.create({
-                data: {
-                    providerId,
-                    externalId: model.externalId,
-                    name: model.name,
-                    contextWindow: model.contextWindow,
-                    capabilities: JSON.stringify(model.capabilities),
-                    isActive: true
-                }
-            });
-        }
-    }
-    
-    logger.info(`Updated ${models.length} models for provider ${providerId}`);
-}
+// Use shared fetchAvailableModels from llm-model-fetcher
+// This replaces the local implementation
