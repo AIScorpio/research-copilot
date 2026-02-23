@@ -94,6 +94,32 @@ model Paper {
   @@index([source, publicationDate], map: "Paper_source_date_idx")
 }
 
+model DeletedPaper {
+  id                    String    @id @default(uuid())
+  originalId            String    @unique
+  title                 String
+  abstract              String?
+  url                   String
+  source                String
+  sourceType            String?
+  publicationDate       DateTime
+  collectedAt           DateTime
+  aiSummary             String?
+  relevanceScore        Float?
+  technicalScore        Float?
+  businessScore         Float?
+  timelinessScore       Float?
+  practicalityScore     Float?
+  assessmentReason      String?
+  technicalBonusApplied Boolean   @default(false)
+  deletedAt             DateTime  @default(now())
+  deletedBy             String?
+
+  @@index([deletedAt])
+  @@index([source])
+  @@index([originalId])
+}
+
 model Tag {
   id        String      @id @default(uuid())
   name      String      @unique

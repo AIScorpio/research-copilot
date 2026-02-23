@@ -1,7 +1,8 @@
 # Paper Deletion Strategy - Design & Execution Plan
 
 **Created**: 2026-02-23
-**Status**: Approved for Implementation
+**Last Updated**: 2026-02-23
+**Status**: Phase 1 Complete | Phase 2 Ready for Implementation
 **Priority**: High
 **Scope**: Paper deletion data integrity and consistency
 
@@ -11,15 +12,15 @@
 
 This document outlines a two-phase approach to fix the paper deletion inconsistency and optionally add archive capability for audit/recovery.
 
-**Current Problem:**
-- Schema has `deletedAt` field (soft-delete pattern)
-- DELETE API does hard delete (ignores `deletedAt`)
-- 3 files filter by `deletedAt: null` (expect soft-delete)
-- 15+ files don't filter (expect hard-delete)
-- Inconsistent behavior, potential data integrity issues
+**Problem (Now Resolved):**
+- ~~Schema has `deletedAt` field (soft-delete pattern)~~
+- ~~DELETE API does hard delete (ignores `deletedAt`)~~
+- ~~3 files filter by `deletedAt: null` (expect soft-delete)~~
+- ~~15+ files don't filter (expect hard-delete)~~
+- ~~Inconsistent behavior, potential data integrity issues~~
 
 **Solution:**
-- Phase 1: Commit to hard delete, remove dead `deletedAt` code
+- Phase 1: ✅ **COMPLETED** - Commit to hard delete, remove dead `deletedAt` code
 - Phase 2: Add separate archive table for audit/recovery (optional)
 
 ---
@@ -37,7 +38,7 @@ This document outlines a two-phase approach to fix the paper deletion inconsiste
 
 ## Current State Analysis
 
-### Schema Definition
+### Current Paper Schema (Post Phase 1)
 
 ```prisma
 model Paper {
@@ -50,79 +51,6 @@ model Paper {
   publicationDate       DateTime
   collectedAt           DateTime        @default(now())
   aiSummary             String?
-  deletedAt             DateTime?       // ← DEAD CODE: Never set by API
-  relevanceScore        Float?
-  ...
-}
-```
-
-### DELETE API Implementation
-
-**File:** `src/app/api/papers/[id]/route.ts`
-
-```typescript
-// Current implementation - HARD DELETE with transaction
-await prisma.$transaction([
-    prisma.paperTag.deleteMany({ where: { paperId: id } }),
-    prisma.userTag.deleteMany({ where: { paperId: id } }),
-    prisma.userFavorite.deleteMany({ where: { paperId: id } }),
-    prisma.paper.delete({ where: { id } })  // ← Hard delete, deletedAt never used
-]);
-```
-
-### Files with `deletedAt` Filters (Expecting Soft-Delete)
-
-| File | Line(s) | Code Pattern |
-|------|---------|--------------|
-| `src/lib/technology-radar.ts` | 79, 101, 119, 140, 156 | `deletedAt: null` |
-| `src/lib/collection-service.ts` | 581, 585, 591 | `deletedAt: null` |
-| `src/lib/trends.ts` | 344 | `deletedAt: null` |
-
-### Files WITHOUT `deletedAt` Filters (Expecting Hard-Delete)
-
-| File | Impact if Soft-Delete Implemented |
-|------|-----------------------------------|
-| `src/app/page.tsx` | Dashboard shows deleted papers |
-| `src/app/papers/page.tsx` | Library shows deleted papers |
-| `src/app/pipeline/page.tsx` | Pipeline shows deleted papers |
-| `src/app/api/papers/route.ts` | API returns deleted papers |
-| `src/app/api/stats/route.ts` | Stats count deleted papers |
-| `src/app/api/export/powerpoint/route.ts` | Export includes deleted |
-| `src/lib/recommendations.ts` | Recommendations include deleted |
-| `src/lib/newsletter.ts` | Newsletters include deleted |
-| `src/lib/competitive-intel.ts` | Intel includes deleted |
-| `src/lib/social-media.ts` | Social posts include deleted |
-| `src/lib/rag.ts` | RAG search returns deleted |
-| `src/lib/email-service.ts` | Emails include deleted |
-| `src/lib/email-digest.ts` | Digests include deleted |
-| `src/lib/collection-service.ts:508` | Duplicate check finds deleted |
-
----
-
-## Phase 1: Hard Delete Alignment
-
-### Objective
-
-Remove the soft-delete pattern (`deletedAt` field) and commit to hard delete, ensuring consistency across the codebase.
-
-### Changes Required
-
-#### 1.1 Schema Modification
-
-**File:** `prisma/schema.prisma`
-
-```diff
-model Paper {
-  id                    String          @id @default(uuid())
-  title                 String
-  abstract              String?
-  url                   String          @unique
-  source                String
-  sourceType            String?
-  publicationDate       DateTime
-  collectedAt           DateTime        @default(now())
-  aiSummary             String?
-- deletedAt             DateTime?       // REMOVE THIS LINE
   relevanceScore        Float?
   technicalScore        Float?
   businessScore         Float?
@@ -135,7 +63,6 @@ model Paper {
   userTags              UserTag[]
   newsletters           NewsletterLog[] @relation("NewsletterLogToPaper")
 
-- @@index([deletedAt])                    // REMOVE THIS LINE
   @@index([publicationDate])
   @@index([source])
   @@index([url])
@@ -146,124 +73,12 @@ model Paper {
 }
 ```
 
-#### 1.2 Remove `deletedAt` Filters
-
-**File:** `src/lib/technology-radar.ts`
-
-```diff
-// Line 76-79
-prisma.paper.findMany({
-    where: {
-        publicationDate: { gte: currentPeriodStart },
--       deletedAt: null
-    },
-    ...
-})
-
-// Line 95-101
-prisma.paper.findMany({
-    where: {
-        publicationDate: {
-            gte: previousPeriodStart,
-            lt: currentPeriodStart
-        },
--       deletedAt: null
-    },
-    ...
-})
-
-// Line 116-119
-prisma.paper.findMany({
-    where: {
-        publicationDate: { gte: lastWeekStart },
--       deletedAt: null
-    },
-    ...
-})
-
-// Line 134-140
-prisma.paper.findMany({
-    where: {
-        publicationDate: {
-            gte: previousWeekStart,
-            lt: lastWeekStart
-        },
--       deletedAt: null
-    },
-    ...
-})
-
-// Line 155-156
-prisma.paper.findMany({
--   where: { deletedAt: null },
-+   where: {},
-    ...
-})
-```
-
-**File:** `src/lib/collection-service.ts`
-
-```diff
-// Line 580-592
-const [totalPapers, papersThisWeek, papersThisMonth, lastPaper] = await Promise.all([
--   prisma.paper.count({ where: { deletedAt: null } }),
-+   prisma.paper.count(),
-    prisma.paper.count({
-        where: {
-            collectedAt: { gte: weekAgo },
--           deletedAt: null
-        }
-    }),
-    prisma.paper.count({
-        where: {
-            collectedAt: { gte: monthAgo },
--           deletedAt: null
-        }
-    }),
-    ...
-]);
-```
-
-**File:** `src/lib/trends.ts`
-
-```diff
-// Line 337-344
-const count = await prisma.paper.count({
-    where: {
-        tags: {
-            some: {
-                tagId: tag.id
-            }
-        },
--       deletedAt: null
-    }
-});
-```
-
-#### 1.3 Create Migration
-
-```bash
-npx prisma migrate dev --name remove_paper_deleted_at
-```
-
-**Expected migration SQL:**
-
-```sql
--- DropIndex
-DROP INDEX "Paper_deletedAt_idx";
-
--- AlterTable
-ALTER TABLE "Paper" DROP COLUMN "deletedAt";
-```
-
-#### 1.4 DELETE API - No Changes Required
-
-The current implementation is correct:
+### Current DELETE API Implementation
 
 **File:** `src/app/api/papers/[id]/route.ts`
 
 ```typescript
-// KEEP AS IS - Already correctly implements hard delete with transaction
+// Current implementation - HARD DELETE with transaction
 await prisma.$transaction([
     prisma.paperTag.deleteMany({ where: { paperId: id } }),
     prisma.userTag.deleteMany({ where: { paperId: id } }),
@@ -274,41 +89,102 @@ await prisma.$transaction([
 
 ---
 
+## Phase 1: Hard Delete Alignment
+
+### Status: ✅ COMPLETED
+
+**Completion Date:** 2026-02-23
+**Commit:** `89d031a`
+
+### Summary of Changes
+
+| Change | File | Status |
+|--------|------|--------|
+| Remove `deletedAt` field from Paper model | `prisma/schema.prisma` | ✅ |
+| Remove `deletedAt` index from Paper model | `prisma/schema.prisma` | ✅ |
+| Remove 5 `deletedAt: null` filters | `src/lib/technology-radar.ts` | ✅ |
+| Remove 3 `deletedAt: null` filters | `src/lib/collection-service.ts` | ✅ |
+| Remove 1 `deletedAt: null` filter | `src/lib/trends.ts` | ✅ |
+| Remove 1 `deletedAt: null` filter | `scripts/backfill-trends-simple.ts` | ✅ |
+| Create migration `remove_paper_deleted_at` | `prisma/migrations/` | ✅ |
+
+---
+
 ## Phase 2: Archive Table (Optional)
 
 ### Objective
 
 Add a separate archive table to preserve deleted paper records for audit and recovery purposes, without affecting main query performance.
 
+### Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Archive all Paper fields | Yes | Complete data preservation for recovery |
+| Archive Tag associations | No | Tags are master data, not paper-specific; bloats archive |
+| Handle re-delete | Upsert | Overwrite existing archive to avoid unique constraint error |
+| Include deletedBy | Yes (nullable) | Future-ready for user tracking |
+
 ### Schema Addition
 
 **File:** `prisma/schema.prisma`
 
+Add the following model after the `Paper` model:
+
 ```prisma
 model DeletedPaper {
-  id              String    @id @default(uuid())
-  originalId      String    @unique
-  title           String
-  abstract        String?
-  url             String
-  source          String
-  sourceType      String?
-  publicationDate DateTime
-  collectedAt     DateTime
-  relevanceScore  Float?
-  technicalScore  Float?
-  businessScore   Float?
-  timelinessScore Float?
-  practicalityScore Float?
-  assessmentReason String?
-  deletedAt       DateTime  @default(now())
-  deletedBy       String?   // Future: User who deleted
+  id                    String    @id @default(uuid())
+  originalId            String    @unique
+  title                 String
+  abstract              String?
+  url                   String
+  source                String
+  sourceType            String?
+  publicationDate       DateTime
+  collectedAt           DateTime
+  aiSummary             String?
+  relevanceScore        Float?
+  technicalScore        Float?
+  businessScore         Float?
+  timelinessScore       Float?
+  practicalityScore     Float?
+  assessmentReason      String?
+  technicalBonusApplied Boolean   @default(false)
+  deletedAt             DateTime  @default(now())
+  deletedBy             String?
 
   @@index([deletedAt])
   @@index([source])
   @@index([originalId])
 }
 ```
+
+**Field Mapping Verification:**
+
+| Paper Field | DeletedPaper Field | Match |
+|-------------|-------------------|-------|
+| id | originalId | ✅ (renamed for clarity) |
+| title | title | ✅ |
+| abstract | abstract | ✅ |
+| url | url | ✅ |
+| source | source | ✅ |
+| sourceType | sourceType | ✅ |
+| publicationDate | publicationDate | ✅ |
+| collectedAt | collectedAt | ✅ |
+| aiSummary | aiSummary | ✅ |
+| relevanceScore | relevanceScore | ✅ |
+| technicalScore | technicalScore | ✅ |
+| businessScore | businessScore | ✅ |
+| timelinessScore | timelinessScore | ✅ |
+| practicalityScore | practicalityScore | ✅ |
+| assessmentReason | assessmentReason | ✅ |
+| technicalBonusApplied | technicalBonusApplied | ✅ |
+| tags | (not archived) | N/A - Master data |
+| favoritedBy | (not archived) | N/A - User-specific |
+| userTags | (not archived) | N/A - User-specific |
+| newsletters | (not archived) | N/A - Relationship |
+| - | deletedAt | Archive timestamp |
+| - | deletedBy | Future: User ID |
 
 ### Enhanced DELETE API
 
@@ -348,9 +224,29 @@ export async function DELETE(
 
         // 2. Archive and delete in transaction
         await prisma.$transaction([
-            // 2a. Create archive record
-            prisma.deletedPaper.create({
-                data: {
+            // 2a. Create or update archive record (handles re-delete scenario)
+            prisma.deletedPaper.upsert({
+                where: { originalId: paper.id },
+                update: {
+                    // Update existing archive (paper was re-collected and deleted again)
+                    title: paper.title,
+                    abstract: paper.abstract,
+                    url: paper.url,
+                    source: paper.source,
+                    sourceType: paper.sourceType,
+                    publicationDate: paper.publicationDate,
+                    collectedAt: paper.collectedAt,
+                    aiSummary: paper.aiSummary,
+                    relevanceScore: paper.relevanceScore,
+                    technicalScore: paper.technicalScore,
+                    businessScore: paper.businessScore,
+                    timelinessScore: paper.timelinessScore,
+                    practicalityScore: paper.practicalityScore,
+                    assessmentReason: paper.assessmentReason,
+                    technicalBonusApplied: paper.technicalBonusApplied,
+                    deletedAt: new Date(), // Update timestamp
+                },
+                create: {
                     originalId: paper.id,
                     title: paper.title,
                     abstract: paper.abstract,
@@ -359,12 +255,14 @@ export async function DELETE(
                     sourceType: paper.sourceType,
                     publicationDate: paper.publicationDate,
                     collectedAt: paper.collectedAt,
+                    aiSummary: paper.aiSummary,
                     relevanceScore: paper.relevanceScore,
                     technicalScore: paper.technicalScore,
                     businessScore: paper.businessScore,
                     timelinessScore: paper.timelinessScore,
                     practicalityScore: paper.practicalityScore,
                     assessmentReason: paper.assessmentReason,
+                    technicalBonusApplied: paper.technicalBonusApplied,
                 }
             }),
             // 2b. Delete related records
@@ -386,11 +284,56 @@ export async function DELETE(
 }
 ```
 
+### Expected Migration SQL
+
+**File:** `prisma/migrations/YYYYMMDDHHMMSS_add_deleted_paper_archive/migration.sql`
+
+```sql
+-- CreateTable
+CREATE TABLE "DeletedPaper" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "originalId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "abstract" TEXT,
+    "url" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "sourceType" TEXT,
+    "publicationDate" DATETIME NOT NULL,
+    "collectedAt" DATETIME NOT NULL,
+    "aiSummary" TEXT,
+    "relevanceScore" REAL,
+    "technicalScore" REAL,
+    "businessScore" REAL,
+    "timelinessScore" REAL,
+    "practicalityScore" REAL,
+    "assessmentReason" TEXT,
+    "technicalBonusApplied" BOOLEAN NOT NULL DEFAULT false,
+    "deletedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedBy" TEXT
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DeletedPaper_originalId_key" ON "DeletedPaper"("originalId");
+
+-- CreateIndex
+CREATE INDEX "DeletedPaper_deletedAt_idx" ON "DeletedPaper"("deletedAt");
+
+-- CreateIndex
+CREATE INDEX "DeletedPaper_source_idx" ON "DeletedPaper"("source");
+
+-- CreateIndex
+CREATE INDEX "DeletedPaper_originalId_idx" ON "DeletedPaper"("originalId");
+```
+
 ### Future: Recovery API (Optional)
 
 **File:** `src/app/api/archive/[id]/restore/route.ts` (Future)
 
 ```typescript
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { handleError } from '@/lib/error-handler';
+
 /**
  * POST /api/archive/[id]/restore
  * Restore a deleted paper from archive
@@ -420,12 +363,12 @@ export async function POST(
 
         if (existing) {
             return NextResponse.json(
-                { error: 'Paper with this URL already exists' },
+                { error: 'Paper with this URL already exists in the library' },
                 { status: 409 }
             );
         }
 
-        // Restore paper
+        // Restore paper (without tags - they need to be re-assigned)
         const restored = await prisma.paper.create({
             data: {
                 id: archivedPaper.originalId,
@@ -436,12 +379,14 @@ export async function POST(
                 sourceType: archivedPaper.sourceType,
                 publicationDate: archivedPaper.publicationDate,
                 collectedAt: archivedPaper.collectedAt,
+                aiSummary: archivedPaper.aiSummary,
                 relevanceScore: archivedPaper.relevanceScore,
                 technicalScore: archivedPaper.technicalScore,
                 businessScore: archivedPaper.businessScore,
                 timelinessScore: archivedPaper.timelinessScore,
                 practicalityScore: archivedPaper.practicalityScore,
                 assessmentReason: archivedPaper.assessmentReason,
+                technicalBonusApplied: archivedPaper.technicalBonusApplied,
             }
         });
 
@@ -452,6 +397,7 @@ export async function POST(
 
         return NextResponse.json({
             success: true,
+            message: "Paper restored successfully",
             paper: restored
         });
     } catch (error) {
@@ -469,40 +415,49 @@ export async function POST(
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 1.1 | Remove `deletedAt` field from Paper model | `prisma/schema.prisma` | ⬜ |
-| 1.2 | Remove `deletedAt` index from Paper model | `prisma/schema.prisma` | ⬜ |
-| 1.3 | Remove `deletedAt: null` filter (line 79) | `src/lib/technology-radar.ts` | ⬜ |
-| 1.4 | Remove `deletedAt: null` filter (line 101) | `src/lib/technology-radar.ts` | ⬜ |
-| 1.5 | Remove `deletedAt: null` filter (line 119) | `src/lib/technology-radar.ts` | ⬜ |
-| 1.6 | Remove `deletedAt: null` filter (line 140) | `src/lib/technology-radar.ts` | ⬜ |
-| 1.7 | Remove `deletedAt: null` filter (line 156) | `src/lib/technology-radar.ts` | ⬜ |
-| 1.8 | Remove `deletedAt: null` filter (line 581) | `src/lib/collection-service.ts` | ⬜ |
-| 1.9 | Remove `deletedAt: null` filter (line 585) | `src/lib/collection-service.ts` | ⬜ |
-| 1.10 | Remove `deletedAt: null` filter (line 591) | `src/lib/collection-service.ts` | ⬜ |
-| 1.11 | Remove `deletedAt: null` filter (line 344) | `src/lib/trends.ts` | ⬜ |
-| 1.12 | Create and run migration | Terminal | ⬜ |
-| 1.13 | Regenerate Prisma client | Terminal | ⬜ |
-| 1.14 | Test paper deletion | Manual | ⬜ |
-| 1.15 | Verify no regressions | Manual | ⬜ |
+| 1.1 | Remove `deletedAt` field from Paper model | `prisma/schema.prisma` | ✅ Complete |
+| 1.2 | Remove `deletedAt` index from Paper model | `prisma/schema.prisma` | ✅ Complete |
+| 1.3 | Remove `deletedAt: null` filter (line 79) | `src/lib/technology-radar.ts` | ✅ Complete |
+| 1.4 | Remove `deletedAt: null` filter (line 101) | `src/lib/technology-radar.ts` | ✅ Complete |
+| 1.5 | Remove `deletedAt: null` filter (line 119) | `src/lib/technology-radar.ts` | ✅ Complete |
+| 1.6 | Remove `deletedAt: null` filter (line 140) | `src/lib/technology-radar.ts` | ✅ Complete |
+| 1.7 | Remove `deletedAt: null` filter (line 156) | `src/lib/technology-radar.ts` | ✅ Complete |
+| 1.8 | Remove `deletedAt: null` filter (line 581) | `src/lib/collection-service.ts` | ✅ Complete |
+| 1.9 | Remove `deletedAt: null` filter (line 585) | `src/lib/collection-service.ts` | ✅ Complete |
+| 1.10 | Remove `deletedAt: null` filter (line 591) | `src/lib/collection-service.ts` | ✅ Complete |
+| 1.11 | Remove `deletedAt: null` filter (line 344) | `src/lib/trends.ts` | ✅ Complete |
+| 1.12 | Remove `deletedAt: null` filter | `scripts/backfill-trends-simple.ts` | ✅ Complete |
+| 1.13 | Create and run migration | Terminal | ✅ Complete |
+| 1.14 | Regenerate Prisma client | Terminal | ✅ Complete |
+| 1.15 | Clear Next.js cache (`.next` folder) | Terminal | ✅ Complete |
+| 1.16 | Test paper deletion | Manual | ✅ Complete |
+| 1.17 | Peer review validation | Manual | ✅ Complete |
 
 ### Phase 2: Archive Table (Optional)
 
 | # | Task | File | Status |
 |---|------|------|--------|
 | 2.1 | Add DeletedPaper model to schema | `prisma/schema.prisma` | ⬜ |
-| 2.2 | Create and run migration | Terminal | ⬜ |
-| 2.3 | Update DELETE endpoint with archive logic | `src/app/api/papers/[id]/route.ts` | ⬜ |
-| 2.4 | Test archive on delete | Manual | ⬜ |
-| 2.5 | (Future) Create archive viewer UI | New | ⬜ |
-| 2.6 | (Future) Create restore API | New | ⬜ |
+| 2.2 | Run `npx prisma validate` to verify schema | Terminal | ⬜ |
+| 2.3 | Create and run migration | Terminal | ⬜ |
+| 2.4 | Run `npx prisma generate` | Terminal | ⬜ |
+| 2.5 | Update DELETE endpoint with archive logic | `src/app/api/papers/[id]/route.ts` | ⬜ |
+| 2.6 | Clear Next.js cache (`rm -rf .next`) | Terminal | ⬜ |
+| 2.7 | Restart dev server | Terminal | ⬜ |
+| 2.8 | Test archive on delete | Manual | ⬜ |
+| 2.9 | Test re-delete scenario | Manual | ⬜ |
+| 2.10 | Verify no regressions | Manual | ⬜ |
+| 2.11 | (Future) Create archive list API | `src/app/api/archive/route.ts` | ⬜ |
+| 2.12 | (Future) Create restore API | `src/app/api/archive/[id]/restore/route.ts` | ⬜ |
+| 2.13 | (Future) Create archive viewer UI | New component | ⬜ |
 
 ---
 
 ## Testing Plan
 
-### Phase 1 Testing
+### Phase 1 Testing (Completed)
 
-#### Test 1: Paper Deletion
+#### Test 1: Paper Deletion ✅
 ```
 1. Create a test paper (or use existing)
 2. Note the paper ID
@@ -514,7 +469,7 @@ export async function POST(
 8. Check DB: Related UserFavorites deleted
 ```
 
-#### Test 2: Dashboard Stats
+#### Test 2: Dashboard Stats ✅
 ```
 1. Note dashboard paper count before deletion
 2. Delete a paper
@@ -522,7 +477,7 @@ export async function POST(
 4. Verify: Count decreased by 1
 ```
 
-#### Test 3: Library Page
+#### Test 3: Library Page ✅
 ```
 1. View library page
 2. Delete a paper via X button
@@ -532,14 +487,14 @@ export async function POST(
 6. Verify: No results
 ```
 
-#### Test 4: Technology Radar
+#### Test 4: Technology Radar ✅
 ```
 1. Open technology radar
 2. Verify: Charts load without error
 3. Verify: Data looks consistent
 ```
 
-#### Test 5: Collection Duplicate Detection
+#### Test 5: Collection Duplicate Detection ✅
 ```
 1. Delete a paper
 2. Run collection with same query
@@ -550,10 +505,91 @@ export async function POST(
 
 #### Test 6: Archive Creation
 ```
+1. Note paper ID and all field values
+2. Delete the paper
+3. Query DeletedPaper table:
+   SELECT * FROM DeletedPaper WHERE originalId = '<paper_id>';
+4. Verify: Record exists
+5. Verify: All fields match original paper data
+6. Verify: deletedAt timestamp is set
+```
+
+#### Test 7: Archive Data Accuracy
+```
+1. Select a paper with all fields populated (including aiSummary)
+2. Note all field values
+3. Delete the paper
+4. Check DeletedPaper record
+5. Verify each field matches:
+   - title ✅
+   - abstract ✅
+   - url ✅
+   - source ✅
+   - sourceType ✅
+   - publicationDate ✅
+   - collectedAt ✅
+   - aiSummary ✅
+   - relevanceScore ✅
+   - technicalScore ✅
+   - businessScore ✅
+   - timelinessScore ✅
+   - practicalityScore ✅
+   - assessmentReason ✅
+   - technicalBonusApplied ✅
+```
+
+#### Test 8: Paper Removal from Main Table
+```
 1. Delete a paper
-2. Check DeletedPaper table
-3. Verify: Record exists with correct data
-4. Verify: originalId matches deleted paper's ID
+2. Query Paper table:
+   SELECT * FROM Paper WHERE id = '<paper_id>';
+3. Verify: No results (paper is gone)
+```
+
+#### Test 9: Related Records Cleanup
+```
+1. Note paper ID and count of related records:
+   - SELECT COUNT(*) FROM PaperTag WHERE paperId = '<id>';
+   - SELECT COUNT(*) FROM UserTag WHERE paperId = '<id>';
+   - SELECT COUNT(*) FROM UserFavorite WHERE paperId = '<id>';
+2. Delete the paper
+3. Verify all counts are now 0
+```
+
+#### Test 10: Re-delete Scenario (Paper Re-collected and Deleted Again)
+```
+1. Delete a paper (paper A)
+2. Verify: Archive record created
+3. Re-collect the same paper (paper A with same URL)
+4. Delete the paper again
+5. Verify: Archive record updated (not duplicated)
+6. Verify: deletedAt timestamp is newer
+7. Verify: Only 1 archive record exists for this originalId
+```
+
+#### Test 11: API Response
+```
+1. Delete a paper via API: DELETE /api/papers/<id>
+2. Verify response:
+   {
+     "success": true,
+     "message": "Paper removed and archived successfully"
+   }
+```
+
+#### Test 12: Non-existent Paper
+```
+1. Try to delete non-existent paper: DELETE /api/papers/<fake-id>
+2. Verify response status: 404
+3. Verify error message indicates paper not found
+```
+
+#### Test 13: Error Handling (Transaction Rollback)
+```
+1. Manually cause an error (e.g., invalid state)
+2. Verify: Transaction rolls back completely
+3. Verify: Paper still exists in main table
+4. Verify: No partial archive created
 ```
 
 ---
@@ -562,44 +598,54 @@ export async function POST(
 
 ### If Phase 1 Causes Issues
 
-1. **Revert schema changes:**
+**Note:** Phase 1 is already complete and stable. If issues are discovered:
+
+1. **Revert to previous commit:**
    ```bash
-   git checkout HEAD -- prisma/schema.prisma
-   npx prisma migrate dev --name rollback_deleted_at
+   git revert 89d031a
    ```
 
-2. **Revert code changes:**
+2. **Or manually restore schema:**
    ```bash
-   git checkout HEAD -- src/lib/technology-radar.ts
-   git checkout HEAD -- src/lib/collection-service.ts
-   git checkout HEAD -- src/lib/trends.ts
-   ```
-
-3. **Regenerate Prisma client:**
-   ```bash
+   git checkout dd65ced -- prisma/schema.prisma
+   npx prisma migrate dev --name restore_deleted_at
    npx prisma generate
+   rm -rf .next
    ```
 
 ### If Phase 2 Causes Issues
 
-1. Archive table doesn't affect main functionality
-2. Simply revert the DELETE endpoint to original:
+1. **Revert DELETE endpoint:**
    ```bash
    git checkout HEAD -- src/app/api/papers/[id]/route.ts
    ```
+
+2. **Remove DeletedPaper table (if desired):**
+   ```bash
+   # Remove model from schema, then:
+   npx prisma migrate dev --name remove_deleted_paper_archive
+   npx prisma generate
+   ```
+
+3. **Or keep archive table but disable archiving:**
+   - Simply revert the DELETE endpoint
+   - Archive table remains but is no longer populated
+   - Can be re-enabled later
 
 ---
 
 ## Migration Commands
 
 ```bash
-# Phase 1
+# Phase 1 (Already Complete)
 npx prisma migrate dev --name remove_paper_deleted_at
 npx prisma generate
+rm -rf .next
 
-# Phase 2 (optional)
+# Phase 2 (Optional)
 npx prisma migrate dev --name add_deleted_paper_archive
 npx prisma generate
+rm -rf .next
 ```
 
 ---
@@ -614,6 +660,7 @@ npx prisma generate
 | Recovery | None | None | Via archive |
 | Data Integrity | ✅ Via transaction | ✅ Via transaction | ✅ Via transaction |
 | Consistency | ❌ Mixed patterns | ✅ Consistent | ✅ Consistent |
+| Audit Trail | None | None | ✅ DeletedPaper records |
 
 ---
 
@@ -621,14 +668,17 @@ npx prisma generate
 
 | Role | Name | Date | Status |
 |------|------|------|--------|
-| Developer | | | ⬜ Pending |
-| Reviewer | | | ⬜ Pending |
+| Developer | | 2026-02-23 | ✅ Phase 1 Complete |
+| Reviewer | | 2026-02-23 | ✅ Phase 1 Validated |
+| Phase 2 | | | ⬜ Ready for Implementation |
 
 ---
 
 ## Notes
 
-- Phase 1 is **required** to fix the current inconsistency
-- Phase 2 is **optional** and can be implemented later if audit/recovery is needed
-- No data loss risk - current hard delete already works correctly
-- Low risk change - only removing dead code
+- Phase 1 is **complete** - all tasks finished and validated
+- Phase 2 is **optional** - implement when audit/recovery is needed
+- Tags are **not archived** - they are master data and can be re-assigned after restore
+- `aiSummary` and `technicalBonusApplied` **are archived** for complete data preservation
+- Re-delete uses **upsert** to handle papers that are collected, deleted, re-collected, and deleted again
+- All archive operations are in the **same transaction** as deletion for data integrity
