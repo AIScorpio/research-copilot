@@ -998,15 +998,16 @@ export async function callLLMWithFallback<T>(
     while (true) {
         const llm = getLLMProvider();
         const providerName = llm.getProviderName();
+        const modelName = (llm as any).config?.model || 'default';
         
         try {
-            logger.debug(`[LLM] Trying ${operationName} with ${providerName}`);
+            logger.debug(`[LLM] Trying ${operationName} with ${providerName}/${modelName}`);
             const result = await operation(llm);
-            logger.debug(`[LLM] ${operationName} succeeded with ${providerName}`);
+            logger.debug(`[LLM] ${operationName} succeeded with ${providerName}/${modelName}`);
             return result;
         } catch (error) {
             lastError = error as Error;
-            logger.warn(`[LLM] ${operationName} failed with ${providerName}: ${lastError.message}`);
+            logger.warn(`[LLM] ${operationName} failed with ${providerName}/${modelName}: ${lastError.message}`);
             
             const nextProvider = getNextLLMProvider();
             if (!nextProvider) {
@@ -1067,7 +1068,8 @@ export async function ensureLLMInitialized(userId: string = 'system'): Promise<v
         await initializeLLMFromDatabase(userId);
         isLLMInitialized = true;
         logger.info(`LLM providers initialized: ${globalLLMProviders.length} providers`, {
-            providers: globalLLMProviders.map(p => p.getProviderName())
+            providers: globalLLMProviders.map(p => p.getProviderName()),
+            models: globalLLMProviders.map(p => (p as any).config?.model)
         });
     } catch (error) {
         logger.warn('Failed to initialize LLM from database, using fallback', { error });

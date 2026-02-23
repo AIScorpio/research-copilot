@@ -1,0 +1,33 @@
+{
+  "testCase": {
+    "query": {
+      "original": "AI in banking",
+      "description": "Simple query to test query optimization capability"
+    },
+    "paper": {
+      "title": "Machine Learning for Credit Risk Assessment in Banking",
+      "abstract": "This paper presents a novel approach to credit risk assessment using ensemble machine learning methods. We evaluate various models including gradient boosting, random forests, and neural networks on a dataset of 100,000 loan applications. Our results show that the proposed ensemble method achieves 94% accuracy in predicting loan defaults, outperforming traditional credit scoring methods by 12%."
+    }
+  },
+  "validation": {
+    "query": {
+      "mustContainOperators": ["AND", "OR"],
+      "description": "Query must contain Boolean operators"
+    },
+    "assessment": {
+      "requiredFields": ["technical", "business", "timeliness", "practicality"],
+      "fieldTypes": "number",
+      "description": "Must return JSON with numeric score fields"
+    },
+    "tags": {
+      "requiredField": "tags",
+      "fieldType": "array",
+      "description": "Must return JSON with tags array"
+    },
+    "summary": {
+      "minLength": 50,
+      "maxLength": 3000,
+      "description": "Summary must be reasonable length"
+    }
+  }
+}

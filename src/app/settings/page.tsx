@@ -19,6 +19,7 @@ import {
 import SourceManager from '@/components/settings/source-manager';
 import NotificationSettings from '@/components/settings/notification-settings';
 import { LLMProviderManager } from '@/components/settings/llm-provider-manager';
+import { LLMModelTester } from '@/components/settings/llm-model-tester';
 import CollectionSettings from '@/components/settings/collection-settings';
 
 interface PromptTemplates {
@@ -82,6 +83,9 @@ export default function SettingsPage() {
 
             {/* 5. Multi-Provider LLM Manager */}
             <LLMProviderManager />
+
+            {/* 5b. LLM Model Compatibility Tester */}
+            <LLMModelTester />
 
             {/* 2. Prompt Templates Card */}
             <Card>
