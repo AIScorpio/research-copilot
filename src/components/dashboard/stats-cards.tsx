@@ -6,14 +6,14 @@ import Link from "next/link"
 interface StatsCardsProps {
     total: number;
     businessAppsCount: number;
-    aiTechCount: number;
+    riskCount: number;
     trendingBusinessTags: string[];
-    trendingAITags: string[];
+    trendingRiskTags: string[];
     growthRate: number;
     dailyStats: Record<string, number>;
 }
 
-export function StatsCards({ total, businessAppsCount, aiTechCount, trendingBusinessTags, trendingAITags, growthRate, dailyStats }: StatsCardsProps) {
+export function StatsCards({ total, businessAppsCount, riskCount, trendingBusinessTags, trendingRiskTags, growthRate, dailyStats }: StatsCardsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-3">
             <Card className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20 shadow-sm transition-all hover:shadow-md">
@@ -55,16 +55,16 @@ export function StatsCards({ total, businessAppsCount, aiTechCount, trendingBusi
                 </Card>
             </Link>
 
-            <Link href="/radar">
+            <Link href="/papers?category=risk-category">
                 <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20 cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">AI Technologies</CardTitle>
+                        <CardTitle className="text-sm font-medium">Risk Categories</CardTitle>
                         <Cpu className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{aiTechCount}</div>
+                        <div className="text-2xl font-bold">{riskCount}</div>
                         <p className="text-xs text-muted-foreground">
-                            Trending: {trendingAITags.join(', ')}
+                            Trending: {trendingRiskTags.join(', ')}
                         </p>
                     </CardContent>
                 </Card>

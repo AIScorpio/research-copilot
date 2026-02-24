@@ -44,9 +44,17 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
     const pathname = usePathname()
     const searchParams = useSearchParams()
 
-    const currentSector = searchParams.get('sector')
+    const currentCategory = searchParams.get('category')
     const currentTopic = searchParams.get('topic')
     const currentSearch = searchParams.get('search')
+
+    const categoryLabels: Record<string, string> = {
+        'business-area': 'Business Area',
+        'ai-technology': 'AI Technology',
+        'methodology': 'Methodology',
+        'risk-category': 'Risk Category',
+        'regulatory': 'Regulatory'
+    }
 
     const handleSortChange = (value: string) => {
         const params = new URLSearchParams(searchParams);
@@ -121,12 +129,12 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
                 </div>
 
                 {/* Active Filters Display */}
-                {(currentSector || currentTopic || currentSearch) && (
+                {(currentCategory || currentTopic || currentSearch) && (
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm text-muted-foreground">Active filters:</span>
-                        {currentSector && (
+                        {currentCategory && (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
-                                Sector: {currentSector}
+                                Category: {categoryLabels[currentCategory] || currentCategory}
                             </span>
                         )}
                         {currentTopic && (

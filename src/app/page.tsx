@@ -35,8 +35,8 @@ async function getDashboardData() {
     dailyStats[dateStr] = (dailyStats[dateStr] || 0) + 1;
   });
 
-  const trendingAITags = await prisma.tag.findMany({
-    where: { category: 'ai-technology' },
+  const trendingRiskTags = await prisma.tag.findMany({
+    where: { category: 'risk-category' },
     include: { _count: { select: { papers: true } } },
     orderBy: { papers: { _count: 'desc' } },
     take: 3
@@ -49,8 +49,8 @@ async function getDashboardData() {
     take: 3
   }).then(tags => tags.map(t => t.name));
 
-  const techPapersCount = await prisma.paper.count({
-    where: { tags: { some: { tag: { category: 'ai-technology' } } } }
+  const riskPapersCount = await prisma.paper.count({
+    where: { tags: { some: { tag: { category: 'risk-category' } } } }
   });
 
   const businessPapersCount = await prisma.paper.count({
@@ -74,9 +74,9 @@ async function getDashboardData() {
   return {
     total,
     businessAppsCount: businessPapersCount,
-    aiTechCount: techPapersCount,
+    riskCount: riskPapersCount,
     trendingBusinessTags,
-    trendingAITags,
+    trendingRiskTags,
     techChartData,
     methodChartData,
     growthRate,
@@ -96,9 +96,9 @@ export default async function DashboardPage() {
       <StatsCards
         total={data.total}
         businessAppsCount={data.businessAppsCount}
-        aiTechCount={data.aiTechCount}
+        riskCount={data.riskCount}
         trendingBusinessTags={data.trendingBusinessTags}
-        trendingAITags={data.trendingAITags}
+        trendingRiskTags={data.trendingRiskTags}
         growthRate={data.growthRate}
         dailyStats={data.dailyStats}
       />

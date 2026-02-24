@@ -8,14 +8,14 @@ export default async function PapersPage({
 }: {
     searchParams?: Promise<{
         search?: string
-        sector?: string
+        category?: string
         topic?: string
         sort?: string
     }>
 }) {
     const resolvedParams = await searchParams;
     const search = resolvedParams?.search || "";
-    const sector = resolvedParams?.sector;
+    const category = resolvedParams?.category;
     const topic = resolvedParams?.topic;
     const sort = resolvedParams?.sort || "newest";
 
@@ -29,7 +29,7 @@ export default async function PapersPage({
     }
 
     // Tags filter
-    if (sector || topic) {
+    if (category || topic) {
         whereClause.tags = {
             some: {
                 tag: {
@@ -37,7 +37,7 @@ export default async function PapersPage({
                 }
             }
         }
-        if (sector) whereClause.tags.some.tag.OR.push({ type: sector });
+        if (category) whereClause.tags.some.tag.OR.push({ category: category });
         if (topic) whereClause.tags.some.tag.OR.push({ name: topic });
     }
 
