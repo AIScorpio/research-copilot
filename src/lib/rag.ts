@@ -84,7 +84,7 @@ Please provide a detailed, specific answer based on these papers. If asked for e
                     }
                 ],
                 model: 'llama-3.3-70b-versatile',
-                temperature: 0.3,
+                temperature: 0.1,
                 max_tokens: 1000,
             });
 

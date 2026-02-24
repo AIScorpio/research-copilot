@@ -79,7 +79,7 @@ abstract class BaseProvider implements LLMProviderInterface {
 
     constructor(config: LLMConfig) {
         this.config = {
-            temperature: 0.3,
+            temperature: 0.1,
             maxTokens: 2000,
             ...config
         };
@@ -926,7 +926,7 @@ export async function loadLLMConfigsFromDatabase(userId?: string): Promise<LLMCo
                 apiKey: apiKey || undefined,
                 baseUrl: config.baseUrl || config.provider.baseUrl || undefined,
                 model: defaultModel?.externalId || undefined,
-                temperature: config.userModels[0]?.temperature ?? 0.3,
+                temperature: config.userModels[0]?.temperature ?? 0.1,
                 maxTokens: config.userModels[0]?.maxTokens ?? 2000  // 使用 2000 作为默认值
             };
         });
@@ -952,7 +952,7 @@ function getConfigFromEnv(): LLMConfig {
         apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY,
         baseUrl: process.env.LLM_BASE_URL,
         model: process.env.LLM_MODEL,
-        temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.3'),
+        temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.1'),
         maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '1000', 10)
     };
 }

@@ -39,7 +39,7 @@ function getCurrentConfig(): LLMConfig {
         apiKey: getApiKeyForProvider(provider),
         baseUrl: process.env.LLM_BASE_URL || DEFAULT_BASE_URLS[provider],
         model: process.env.LLM_MODEL || DEFAULT_MODELS[provider],
-        temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.3'),
+        temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.1'),
         maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '1000', 10)
     };
 }
