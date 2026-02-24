@@ -27,7 +27,7 @@ interface PaperItem {
     url: string;
     collectedAt?: string;
     favoritedBy?: unknown[];
-    tags?: { id: string; name: string; type: string }[];
+    tags?: { id: string; name: string; category: string }[];
 }
 
 interface PipelineViewProps {

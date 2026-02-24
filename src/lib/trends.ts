@@ -20,7 +20,6 @@ export interface TrendMetrics {
 export interface TrendingTopic {
   tagId: string;
   tagName: string;
-  tagType: string;
   tagCategory?: string | null;
   growthRate: number;
   percentChange: number;
@@ -182,7 +181,6 @@ export async function identifyTrendingTopics(
     return {
       tagId: tag.id,
       tagName: tag.name,
-      tagType: tag.type,
       tagCategory: tag.category,
       growthRate,
       percentChange,
@@ -272,7 +270,6 @@ export async function getAllTrends(
     return {
       tagId: tag.id,
       tagName: tag.name,
-      tagType: tag.type,
       tagCategory: tag.category,
       growthRate,
       percentChange,

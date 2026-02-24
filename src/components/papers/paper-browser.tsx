@@ -25,7 +25,7 @@ interface Paper {
     aiSummary?: string | null;
     assessmentReason?: string | null;
     favoritedBy?: unknown[];
-    tags?: { id: string; name: string; type: string }[];
+    tags?: { id: string; name: string; category: string }[];
     relevanceScore?: number;
     technicalScore?: number;
     businessScore?: number;

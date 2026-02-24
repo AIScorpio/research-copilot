@@ -157,7 +157,7 @@ export default async function PaperDetailPage({
                                 ...paper.tags.map((pt: any) => ({
                                     id: pt.tag.id,
                                     tagName: pt.tag.name,
-                                    type: pt.tag.type
+                                    category: pt.tag.category
                                 })),
                                 ...paper.userTags
                             ]}
@@ -168,7 +168,6 @@ export default async function PaperDetailPage({
                         <h3 className="font-semibold mb-3">Metadata</h3>
                         <div className="text-sm space-y-2 text-muted-foreground">
                             <p>Collected: {new Date(paper.collectedAt).toLocaleDateString()}</p>
-                            <p>Type: {paper.tags.some((t: any) => t.tag.type === "Academic") ? "Academic Research" : "Industry Report"}</p>
                         </div>
                     </div>
                 </div>

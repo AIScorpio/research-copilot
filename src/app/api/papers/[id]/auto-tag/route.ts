@@ -29,7 +29,7 @@ export async function POST(
         const existingNamesSet = new Set(existingNames.map(n => n.toLowerCase()));
         const newSuggestions = tagResult.tags
             .filter(t => !existingNamesSet.has(t.name.toLowerCase()))
-            .map(t => ({ name: t.name, type: t.type }));
+            .map(t => ({ name: t.name, category: t.category }));
 
         console.log('[Auto-Tag] Final suggestions:', newSuggestions);
 

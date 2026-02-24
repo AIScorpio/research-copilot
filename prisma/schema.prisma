@@ -123,7 +123,6 @@ model DeletedPaper {
 model Tag {
   id        String      @id @default(uuid())
   name      String      @unique
-  type      String
   category  String?
   papers    PaperTag[]
   trendData TrendData[]

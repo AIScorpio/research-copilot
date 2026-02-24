@@ -278,7 +278,6 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                         dbTag = await prisma.tag.create({
                             data: { 
                                 name: tag.name, 
-                                type: tag.type,
                                 category: tag.category || 'uncategorized'
                             }
                         });

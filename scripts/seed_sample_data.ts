@@ -66,7 +66,6 @@ async function seedSamplePapers() {
         update: {},
         create: {
           name: tagName,
-          type: 'Banking',
           category: tagName.toLowerCase().replace(/\s+/g, '-')
         }
       });

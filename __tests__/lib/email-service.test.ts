@@ -8,7 +8,7 @@ describe('Email Service', () => {
       url: 'https://example.com/paper1',
       source: 'ArXiv',
       publicationDate: new Date('2024-01-01'),
-      tags: [{ tag: { name: 'AI', type: 'topic' } }]
+      tags: [{ tag: { name: 'AI', category: 'ai-technology' } }]
     },
     {
       title: 'Fraud Detection',
@@ -16,7 +16,7 @@ describe('Email Service', () => {
       url: 'https://example.com/paper2',
       source: 'IEEE',
       publicationDate: new Date('2024-01-15'),
-      tags: [{ tag: { name: 'Fraud Detection', type: 'topic' } }]
+      tags: [{ tag: { name: 'Fraud Detection', category: 'business-area' } }]
     }
   ];
 

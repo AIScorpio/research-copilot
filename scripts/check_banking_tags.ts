@@ -3,23 +3,22 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const bankingTags = await prisma.tag.findMany({
-    where: { type: 'Banking' },
+  const businessAreaTags = await prisma.tag.findMany({
+    where: { category: 'business-area' },
     orderBy: { name: 'asc' }
   });
   
-  console.log(`Found ${bankingTags.length} banking tags:`);
-  bankingTags.forEach(tag => {
+  console.log(`Found ${businessAreaTags.length} business-area tags:`);
+  businessAreaTags.forEach(tag => {
     console.log(`  - ${tag.name} (category: ${tag.category || 'none'})`);
   });
   
-  // Also check papers with banking tags
-  const papersWithBankingTags = await prisma.paper.findMany({
+  const papersWithBusinessAreaTags = await prisma.paper.findMany({
     where: {
       tags: {
         some: {
           tag: {
-            type: 'Banking'
+            category: 'business-area'
           }
         }
       }
@@ -28,7 +27,7 @@ async function main() {
       tags: {
         where: {
           tag: {
-            type: 'Banking'
+            category: 'business-area'
           }
         },
         include: {
@@ -39,11 +38,11 @@ async function main() {
     take: 5
   });
   
-  console.log(`\nFound ${papersWithBankingTags.length} papers with banking tags (sample):`);
-  papersWithBankingTags.forEach(paper => {
-    const bankingTagNames = paper.tags.map(pt => pt.tag.name).join(', ');
+  console.log(`\nFound ${papersWithBusinessAreaTags.length} papers with business-area tags (sample):`);
+  papersWithBusinessAreaTags.forEach(paper => {
+    const businessTagNames = paper.tags.map(pt => pt.tag.name).join(', ');
     console.log(`  - ${paper.title}`);
-    console.log(`    Tags: ${bankingTagNames}`);
+    console.log(`    Tags: ${businessTagNames}`);
   });
   
   await prisma.$disconnect();

@@ -4,7 +4,7 @@ import { processPaper } from './src/lib/processor.js';
 
 interface ProcessedPaper {
     title: string;
-    suggestedTags: Array<{ type: string }>;
+    suggestedTags: Array<{ name: string; category: string }>;
 }
 
 async function runverification() {
@@ -23,8 +23,8 @@ async function runverification() {
     console.log(`Processed paper: ${processed.title}`);
     console.log(`Tags: ${JSON.stringify(processed.suggestedTags)}`);
 
-    if (!processed.suggestedTags.some((t) => t.type === 'Industrial') && !processed.suggestedTags.some((t) => t.type === 'Academic')) {
-        console.warn("Warning: No tags assigned to the first paper. Check processor logic.");
+    if (!processed.suggestedTags.some((t) => t.category === 'ai-technology')) {
+        console.warn("Warning: No AI-technology tags assigned to the first paper. Check processor logic.");
         // Not throwing error as it depends on the random paper content
     }
 

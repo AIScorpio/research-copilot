@@ -17,7 +17,7 @@ import { useState } from "react"
 interface Tag {
     id: string;
     name: string;
-    type: string;
+    category: string | null;
 }
 
 interface Suggestion {
@@ -125,7 +125,7 @@ export function PaperCard({ paper }: { paper: Paper }) {
                 console.log('[PaperCard] Tag added successfully:', added);
 
                 if (!tags.find((t: Tag) => t.name === added.tagName)) {
-                    setTags([...tags, { id: added.id, name: added.tagName, type: added.type }]);
+                    setTags([...tags, { id: added.id, name: added.tagName, category: added.category }]);
                 }
                 setNewTag("");
                 setIsAdding(false);
@@ -372,21 +372,16 @@ Practicality: ${paper.practicalityScore?.toFixed(1) || 'N/A'}${paper.technicalBo
 
                         {tags.map((tag: Tag) => (
                             <div key={tag.id} className="flex items-center gap-1">
-                                <Badge
-                                    variant={tag.type === "Industrial" ? "default" : tag.type === "Academic" ? "secondary" : "outline"}
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tag.type === "User Defined" ? "border-blue-500/30 text-blue-500" : ""}`}
-                                >
+                                <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded-md">
                                     {tag.name}
                                 </Badge>
-                                {tag.type === "User Defined" && (
-                                    <button
-                                        onClick={() => handleRemoveTag(tag.id)}
-                                        className="text-muted-foreground hover:text-destructive transition-colors"
-                                        title="Remove tag"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => handleRemoveTag(tag.id)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                    title="Remove tag"
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
                             </div>
                         ))}
 

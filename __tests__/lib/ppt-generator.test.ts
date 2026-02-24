@@ -9,7 +9,7 @@ describe('PowerPoint Generator', () => {
       url: 'https://example.com/paper1',
       source: 'ArXiv',
       publicationDate: new Date('2024-01-01'),
-      tags: [{ id: '1', name: 'AI', type: 'topic' }],
+      tags: [{ id: '1', name: 'AI', category: 'ai-technology' }],
       aiSummary: 'AI is revolutionizing banking.'
     },
     {
@@ -19,7 +19,7 @@ describe('PowerPoint Generator', () => {
       url: 'https://example.com/paper2',
       source: 'IEEE',
       publicationDate: new Date('2024-01-15'),
-      tags: [{ id: '2', name: 'ML', type: 'topic' }],
+      tags: [{ id: '1', name: 'ML', category: 'ai-technology' }],
       aiSummary: 'ML improves risk prediction.'
     }
   ];
@@ -112,7 +112,7 @@ describe('PowerPoint Generator', () => {
           url: 'https://example.com',
           source: 'ArXiv',
           publicationDate: new Date('2024-01-01'),
-          tags: [{ id: '1', name: 'AI', type: 'topic' }]
+          tags: [{ id: '1', name: 'AI', category: 'ai-technology' }]
         }
       ];
 
@@ -131,7 +131,7 @@ describe('PowerPoint Generator', () => {
           url: 'https://example.com',
           source: 'ArXiv',
           publicationDate: '2024-01-01',
-          tags: [{ id: '1', name: 'AI', type: 'topic' }]
+          tags: [{ id: '1', name: 'AI', category: 'ai-technology' }]
         }
       ];
 

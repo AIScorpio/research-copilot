@@ -5,15 +5,12 @@ import { MethodologyChart } from "@/components/dashboard/methodology-chart"
 import { FeatureCards } from "@/components/dashboard/feature-cards"
 import { Zap } from "lucide-react"
 
-// Force dynamic rendering to ensure the dashboard always reflects real-time bank data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Fetch data on the server
 async function getDashboardData() {
   const total = await prisma.paper.count();
 
-  // 1. Calculate Today's Growth
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
@@ -24,7 +21,6 @@ async function getDashboardData() {
   const previousTotal = total - todayCount;
   const growthRate = previousTotal > 0 ? (todayCount / previousTotal) * 100 : 0;
 
-  // 2. Daily Stats for Calendar (past 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -33,40 +29,57 @@ async function getDashboardData() {
     select: { collectedAt: true }
   });
 
-  // Group by date
   const dailyStats: Record<string, number> = {};
   dailyHistory.forEach(p => {
     const dateStr = p.collectedAt.toISOString().split('T')[0];
     dailyStats[dateStr] = (dailyStats[dateStr] || 0) + 1;
   });
 
-  // Get all tags with paper counts
-  const allTags = await prisma.tag.findMany({
-    include: { _count: { select: { papers: true } } }
+  const trendingAITags = await prisma.tag.findMany({
+    where: { category: 'ai-technology' },
+    include: { _count: { select: { papers: true } } },
+    orderBy: { papers: { _count: 'desc' } },
+    take: 3
+  }).then(tags => tags.map(t => t.name));
+
+  const trendingBusinessTags = await prisma.tag.findMany({
+    where: { category: 'business-area' },
+    include: { _count: { select: { papers: true } } },
+    orderBy: { papers: { _count: 'desc' } },
+    take: 3
+  }).then(tags => tags.map(t => t.name));
+
+  const techPapersCount = await prisma.paper.count({
+    where: { tags: { some: { tag: { category: 'ai-technology' } } } }
   });
 
-  // Categorize by type
-  const industrialTags = allTags.filter(t => t.type === 'Industrial');
-  const academicTags = allTags.filter(t => t.type === 'Academic');
-  const customTags = allTags.filter(t => t.type === 'User Defined');
+  const businessPapersCount = await prisma.paper.count({
+    where: { tags: { some: { tag: { category: 'business-area' } } } }
+  });
 
-  const industrialCount = industrialTags.reduce((acc: number, t: any) => acc + t._count.papers, 0);
-  const academicCount = academicTags.reduce((acc: number, t: any) => acc + t._count.papers, 0);
+  const techChartData = await prisma.tag.findMany({
+    where: { category: 'ai-technology' },
+    include: { _count: { select: { papers: true } } },
+    orderBy: { papers: { _count: 'desc' } },
+    take: 10
+  }).then(tags => tags.map(t => ({ name: t.name, count: t._count.papers })));
 
-  // Merge for chart - include all tags
-  const chartData = [
-    ...industrialTags.map((t: any) => ({ name: t.name, count: t._count.papers, type: 'Industrial' })),
-    ...academicTags.map((t: any) => ({ name: t.name, count: t._count.papers, type: 'Academic' })),
-    ...customTags.map((t: any) => ({ name: t.name, count: t._count.papers, type: 'Custom' }))
-  ].sort((a: any, b: any) => b.count - a.count).slice(0, 10); // Top 10
+  const methodChartData = await prisma.tag.findMany({
+    where: { category: 'methodology' },
+    include: { _count: { select: { papers: true } } },
+    orderBy: { papers: { _count: 'desc' } },
+    take: 5
+  }).then(tags => tags.map(t => ({ name: t.name, count: t._count.papers })));
 
   return {
     total,
-    industrialCount,
-    academicCount,
-    chartData,
+    businessAppsCount: businessPapersCount,
+    aiTechCount: techPapersCount,
+    trendingBusinessTags,
+    trendingAITags,
+    techChartData,
+    methodChartData,
     growthRate,
-    todayCount,
     dailyStats
   };
 }
@@ -82,8 +95,10 @@ export default async function DashboardPage() {
 
       <StatsCards
         total={data.total}
-        industrialCount={data.industrialCount}
-        academicCount={data.academicCount}
+        businessAppsCount={data.businessAppsCount}
+        aiTechCount={data.aiTechCount}
+        trendingBusinessTags={data.trendingBusinessTags}
+        trendingAITags={data.trendingAITags}
         growthRate={data.growthRate}
         dailyStats={data.dailyStats}
       />
@@ -99,18 +114,17 @@ export default async function DashboardPage() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <div className="col-span-4">
-            <TopicChart data={data.chartData} />
+            <TopicChart data={data.techChartData} />
           </div>
           <div className="col-span-3">
-            <MethodologyChart data={data.chartData.filter((d: any) => d.type === 'Academic')} />
+            <MethodologyChart data={data.methodChartData} />
           </div>
         </div>
 
-        {/* Drill-down Hint */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <div className="col-span-7 bg-muted/40 p-6 rounded-lg text-center">
             <h3 className="text-lg font-semibold mb-2">Want to explore specific papers?</h3>
-            <p className="text-sm text-muted-foreground mb-4">You can drill down into specific sectors or topics in the Library.</p>
+            <p className="text-sm text-muted-foreground mb-4">You can drill down into specific sectors or topics in Library.</p>
           </div>
         </div>
       </div>

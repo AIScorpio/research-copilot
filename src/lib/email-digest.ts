@@ -101,7 +101,7 @@ export async function generateEmailDigest(config: DigestConfig): Promise<EmailDi
             publicationDate: p.publicationDate,
             aiSummary: p.aiSummary || undefined,
             assessmentReason: p.assessmentReason || undefined,
-            tags: p.tags.map(pt => ({ id: pt.tag.id, name: pt.tag.name, type: pt.tag.type }))
+            tags: p.tags.map(pt => ({ id: pt.tag.id, name: pt.tag.name, category: pt.tag.category }))
         }));
 
         const pptxBuffer = await generatePowerPoint(formattedPapers, {

@@ -7,7 +7,7 @@ export interface Paper {
     url: string;
     source: string;
     publicationDate: Date | string;
-    tags?: Array<{ id: string; name: string; type: string }>;
+    tags?: Array<{ id: string; name: string; category: string | null }>;
     aiSummary?: string | null;
     assessmentReason?: string | null;
 }

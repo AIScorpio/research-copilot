@@ -175,7 +175,7 @@ export const schemas = {
   tags: {
     create: z.object({
       name: z.string().min(1, 'Tag name is required').max(100),
-      type: z.enum(['Industrial', 'Academic', 'User Defined']).optional(),
+      category: z.string().min(1, 'Category is required').max(100).optional(),
     }).strict(),
   },
 

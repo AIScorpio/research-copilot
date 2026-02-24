@@ -131,7 +131,7 @@ export async function generatePoCRecommendations(limit: number = 10, domain?: st
 async function fetchBankingTags(): Promise<BankingTag[]> {
     const tags = await prisma.tag.findMany({
         where: {
-            type: 'Banking'
+            category: 'business-area'
         }
     });
     

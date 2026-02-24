@@ -6,12 +6,12 @@ export type { Paper, Tag, PaperTag, UserFavorite } from '@prisma/client';
 // Tag DTOs
 export interface TagDTO {
     name: string;
-    type: 'Academic' | 'Industrial' | 'User Defined';
+    category: string;
 }
 
 export interface CreateTagDTO {
     name: string;
-    type: 'Academic' | 'Industrial' | 'User Defined';
+    category: string;
 }
 
 // Paper DTOs
@@ -80,7 +80,7 @@ export interface RawPaper {
 }
 
 export interface ProcessedPaper extends RawPaper {
-    suggestedTags: TagDTO[];
+    suggestedTags: Array<{ name: string; category: string }>;
 }
 
 // Paper filter params

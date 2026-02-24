@@ -4,7 +4,6 @@ import { logger } from './logger';
 
 export interface ProcessedTag {
     name: string;
-    type: 'Academic' | 'Industrial';
     category: string;
 }
 
@@ -31,7 +30,6 @@ export async function processPaper(paper: SearchResult): Promise<ProcessedPaper>
             ...paper,
             suggestedTags: tagResult.tags.map(tag => ({
                 name: tag.name,
-                type: tag.type as 'Academic' | 'Industrial',
                 category: tag.category
             })),
         };

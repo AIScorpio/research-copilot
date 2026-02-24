@@ -34,7 +34,7 @@ async function debug() {
 
   const bankingTags = await prisma.tag.findMany({
     where: {
-      type: 'Banking'
+      category: 'business-area'
     }
   });
   

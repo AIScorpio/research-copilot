@@ -11,7 +11,6 @@ import { normalizeCategory } from './source-config';
 
 export interface GeneratedTag {
     name: string;
-    type: 'Academic' | 'Industrial' | 'User Defined';
     category: string;
 }
 
@@ -103,7 +102,6 @@ ABSTRACT: ${abstract || 'No abstract available'}${existingTagsNote}`;
             .filter(tag => tag.name && tag.category)
             .map(tag => ({
                 name: tag.name.toLowerCase().replace(/\s+/g, '-'),
-                type: tag.type || 'Industrial',
                 category: normalizeCategory(tag.category)
             }));
 

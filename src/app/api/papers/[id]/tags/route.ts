@@ -24,7 +24,7 @@ export async function POST(
             dbTag = await prisma.tag.create({
                 data: {
                     name: tagName,
-                    type: "User Defined"
+                    category: "uncategorized"
                 }
             });
         }
@@ -50,7 +50,7 @@ export async function POST(
         return NextResponse.json({
             id: dbTag.id,
             tagName: dbTag.name,
-            type: dbTag.type
+            category: dbTag.category
         });
     } catch (error) {
         const handled = handleError(error);
