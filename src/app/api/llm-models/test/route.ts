@@ -1,9 +1,20 @@
+/**
+ * LLM Model Compatibility Test API
+ *
+ * Tests LLM models using the SAME invocation approach as collection pipeline:
+ * - Uses llm-service.ts provider classes (not llm-provider-client.ts)
+ * - Uses provider.generateText() for query and summary
+ * - Uses provider.generateJSON() for assessment and tags
+ * - JSON parsing happens INSIDE provider (throws on failure - same as collection)
+ *
+ * This ensures models that pass the test will work during actual collection.
+ */
+
 import { NextResponse } from 'next/server';
 import { handleError } from '@/lib/error-handler';
 import fs from 'fs';
 import path from 'path';
-import { prisma } from '@/lib/db';
-import { callLLM } from '@/lib/llm-provider-client';
+import { LLMProviderFactory, LLMProvider, LLMConfig } from '@/lib/llm-service';
 
 interface TestRequest {
     models: { id: string; provider: string }[];
@@ -54,167 +65,142 @@ interface TestCaseConfig {
     };
 }
 
+// Type for content assessment result (matches content-filter.ts)
+interface ContentAssessmentResult {
+    isRelevant?: boolean;
+    confidence?: number;
+    reasoning?: string;
+    dimensionScores?: {
+        technical: number;
+        business: number;
+        timeliness: number;
+        practicality: number;
+    };
+    // Flat format support
+    technical?: number;
+    business?: number;
+    timeliness?: number;
+    practicality?: number;
+}
+
+// Type for generated tag (matches tag-generator.ts)
+interface GeneratedTag {
+    name: string;
+    category: string;
+}
+
+/**
+ * Get API key from environment variables for a provider type
+ */
+function getApiKeyFromEnv(providerType: string): string | undefined {
+    switch (providerType.toLowerCase()) {
+        case 'groq':
+            return process.env.GROQ_API_KEY;
+        case 'openai':
+            return process.env.OPENAI_API_KEY;
+        case 'anthropic':
+            return process.env.ANTHROPIC_API_KEY;
+        case 'zhipuai':
+            return process.env.ZHIPUAI_API_KEY;
+        case 'kimi':
+            return process.env.KIMI_API_KEY;
+        case 'alibaba':
+            return process.env.ALIBABA_API_KEY;
+        case 'baidu':
+            return process.env.BAIDU_API_KEY;
+        case 'ollama':
+        case 'lmstudio':
+            return undefined; // Local providers don't need API keys
+        default:
+            return undefined;
+    }
+}
+
 function loadTestCaseConfig(): TestCaseConfig {
     const configPath = path.join(process.cwd(), 'config', 'llm-test-cases.json');
     const content = fs.readFileSync(configPath, 'utf-8');
     return JSON.parse(content);
 }
 
-// Use shared callLLM from llm-provider-client
-// This replaces the local implementation
-
-function validateTestResult(testType: string, content: string): { valid: boolean; error: string | null } {
-    const config = loadTestCaseConfig();
-    const { validation } = config;
-    
-    switch (testType) {
-        case 'query': {
-            // Should contain AND or OR operators for Boolean query
-            const operators = validation.query.mustContainOperators;
-            const regex = new RegExp(`\\b(${operators.join('|')})\\b`, 'i');
-            const hasOperators = regex.test(content);
-            if (!hasOperators) {
-                return { valid: false, error: `Query missing ${operators.join('/')} operators` };
-            }
-            return { valid: true, error: null };
-        }
-        case 'assessment': {
-            // Should be valid JSON with score fields
-            try {
-                const requiredFields = validation.assessment.requiredFields;
-                let cleanedContent = content.trim();
-                
-                const tryParseAndValidate = (jsonStr: string): { valid: boolean; error: string | null } => {
-                    try {
-                        const parsed = JSON.parse(jsonStr);
-                        
-                        // Check top-level flat format: {technical, business, timeliness, practicality}
-                        let hasAllFields = requiredFields.every((field: string) => typeof parsed[field] === 'number');
-                        
-                        // Check nested dimensionScores format: {dimensionScores: {technical, ...}}
-                        if (!hasAllFields && parsed.dimensionScores) {
-                            hasAllFields = requiredFields.every((field: string) => typeof parsed.dimensionScores[field] === 'number');
-                        }
-                        
-                        if (hasAllFields) {
-                            return { valid: true, error: null };
-                        }
-                        return { valid: false, error: `Missing required score fields (${requiredFields.join(', ')})` };
-                    } catch {
-                        return { valid: false, error: 'Parse failed' };
-                    }
-                };
-                
-                // Step 1: Strip markdown code blocks if present
-                if (cleanedContent.includes('```')) {
-                    const codeBlockMatch = cleanedContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-                    if (codeBlockMatch) {
-                        const result = tryParseAndValidate(codeBlockMatch[1].trim());
-                        if (result.valid) return result;
-                    }
-                    // Remove code blocks for further extraction
-                    cleanedContent = cleanedContent.replace(/```(?:json)?\s*[\s\S]*?```/g, '').trim();
-                }
-                
-                // Step 2: Try direct parse
-                const directResult = tryParseAndValidate(cleanedContent);
-                if (directResult.valid) return directResult;
-                
-                // Step 3: Extract JSON objects using balanced brace matching
-                const extractJSONObjects = (text: string): string[] => {
-                    const objects: string[] = [];
-                    let depth = 0;
-                    let start = -1;
-                    
-                    for (let i = 0; i < text.length; i++) {
-                        if (text[i] === '{') {
-                            if (depth === 0) start = i;
-                            depth++;
-                        } else if (text[i] === '}') {
-                            depth--;
-                            if (depth === 0 && start !== -1) {
-                                objects.push(text.substring(start, i + 1));
-                                start = -1;
-                            }
-                        }
-                    }
-                    return objects;
-                };
-                
-                const jsonObjects = extractJSONObjects(cleanedContent);
-                
-                // Try each extracted JSON object
-                for (const jsonObj of jsonObjects) {
-                    const result = tryParseAndValidate(jsonObj);
-                    if (result.valid) return result;
-                }
-                
-                // Step 4: Try to find content after thinking tags (for qwen models)
-                const afterThinking = cleanedContent.split(/<\/?(?:think|thinking)>/i).pop()?.trim();
-                if (afterThinking && afterThinking !== cleanedContent) {
-                    const thinkingObjects = extractJSONObjects(afterThinking);
-                    for (const jsonObj of thinkingObjects) {
-                        const result = tryParseAndValidate(jsonObj);
-                        if (result.valid) return result;
-                    }
-                }
-                
-                return { valid: false, error: `No valid assessment JSON found. First 200 chars: ${cleanedContent.substring(0, 200)}` };
-            } catch (e) {
-                return { valid: false, error: `Validation error: ${(e as Error).message}` };
-            }
-        }
-        case 'tags': {
-            // tag-generator.ts expects: GeneratedTag[] = [{name, type?, category}]
-            try {
-                // Strip markdown code blocks
-                let cleanedContent = content.trim();
-                if (cleanedContent.startsWith('```')) {
-                    cleanedContent = cleanedContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/,'').trim();
-                }
-                
-                // Find JSON array
-                let jsonContent = cleanedContent;
-                if (!cleanedContent.startsWith('[')) {
-                    const arrayMatch = cleanedContent.match(/\[[\s\S]*?\]/);
-                    if (arrayMatch) {
-                        jsonContent = arrayMatch[0];
-                    }
-                }
-                
-                const parsed = JSON.parse(jsonContent);
-                
-                // Must be array with at least one tag having name and category
-                if (!Array.isArray(parsed) || parsed.length === 0) {
-                    return { valid: false, error: 'Expected array of tags' };
-                }
-                
-                // Check at least one tag has required fields (matches tag-generator.ts validation)
-                const hasValidTag = parsed.some((tag: any) => tag.name && tag.category);
-                if (!hasValidTag) {
-                    return { valid: false, error: 'No valid tags with name and category found' };
-                }
-                
-                return { valid: true, error: null };
-            } catch {
-                return { valid: false, error: 'Invalid JSON format' };
-            }
-        }
-        case 'summary': {
-            // Should have reasonable length (not too short, not too long)
-            const trimmed = content.trim();
-            const { minLength, maxLength } = validation.summary;
-            if (trimmed.length < minLength) {
-                return { valid: false, error: `Summary too short (${trimmed.length} chars, min ${minLength})` };
-            }
-            if (trimmed.length > maxLength) {
-                return { valid: false, error: `Summary too long (${trimmed.length} chars, max ${maxLength})` };
-            }
-            return { valid: true, error: null };
-        }
-        default:
-            return { valid: true, error: null };
+/**
+ * Validate query optimization result
+ * Should contain AND or OR operators for Boolean query
+ */
+function validateQueryResult(text: string): { valid: boolean; error: string | null } {
+    const operators = ['AND', 'OR'];
+    const regex = new RegExp(`\\b(${operators.join('|')})\\b`, 'i');
+    if (!regex.test(text)) {
+        return { valid: false, error: `Query missing ${operators.join('/')} operators` };
     }
+    return { valid: true, error: null };
+}
+
+/**
+ * Validate content assessment result
+ * Check if result has required dimension scores
+ */
+function validateAssessmentResult(result: ContentAssessmentResult): { valid: boolean; error: string | null } {
+    // Check flat format (technical, business, etc. at top level)
+    let hasAllFields =
+        typeof result.technical === 'number' &&
+        typeof result.business === 'number' &&
+        typeof result.timeliness === 'number' &&
+        typeof result.practicality === 'number';
+
+    // Check nested format (dimensionScores.technical, etc.)
+    if (!hasAllFields && result.dimensionScores) {
+        hasAllFields =
+            typeof result.dimensionScores.technical === 'number' &&
+            typeof result.dimensionScores.business === 'number' &&
+            typeof result.dimensionScores.timeliness === 'number' &&
+            typeof result.dimensionScores.practicality === 'number';
+    }
+
+    if (!hasAllFields) {
+        return { valid: false, error: 'Missing required score fields (technical, business, timeliness, practicality)' };
+    }
+
+    return { valid: true, error: null };
+}
+
+/**
+ * Validate tag generation result
+ * Check if array has at least one valid tag with name and category
+ */
+function validateTagsResult(result: GeneratedTag[]): { valid: boolean; error: string | null } {
+    if (!Array.isArray(result)) {
+        return { valid: false, error: 'Expected array of tags' };
+    }
+
+    if (result.length === 0) {
+        return { valid: false, error: 'Tag array is empty' };
+    }
+
+    const hasValidTag = result.some(tag => tag.name && tag.category);
+    if (!hasValidTag) {
+        return { valid: false, error: 'No valid tags with name and category found' };
+    }
+
+    return { valid: true, error: null };
+}
+
+/**
+ * Validate summary result
+ * Check if summary has reasonable length
+ */
+function validateSummaryResult(text: string): { valid: boolean; error: string | null } {
+    const trimmed = text.trim();
+    const minLength = 100;
+    const maxLength = 2000;
+
+    if (trimmed.length < minLength) {
+        return { valid: false, error: `Summary too short (${trimmed.length} chars, min ${minLength})` };
+    }
+    if (trimmed.length > maxLength) {
+        return { valid: false, error: `Summary too long (${trimmed.length} chars, max ${maxLength})` };
+    }
+
+    return { valid: true, error: null };
 }
 
 interface PromptPair {
@@ -226,10 +212,10 @@ async function loadPrompt(promptType: 'query' | 'assessment' | 'tags' | 'summary
     const promptsPath = path.join(process.cwd(), 'config', 'prompts.json');
     const promptsContent = fs.readFileSync(promptsPath, 'utf-8');
     const prompts = JSON.parse(promptsContent);
-    
+
     const testCaseConfig = loadTestCaseConfig();
     const { query, paper } = testCaseConfig.testCase;
-    
+
     switch (promptType) {
         case 'query':
             // Matches query-optimizer.ts
@@ -292,30 +278,72 @@ export async function POST(request: Request) {
                         test: testType
                     })}\n\n`));
 
-                    const { systemPrompt, userPrompt } = await loadPrompt(testType);
-                    const llmResult = await callLLM(modelInfo.provider, modelInfo.id, systemPrompt, userPrompt);
+                    const testStart = Date.now();
+                    let passed = false;
+                    let error: string | null = null;
+                    let content: string | undefined = undefined;
 
-                    // Validate the response content
-                    let passed = llmResult.success;
-                    let error = llmResult.error || null;
+                    try {
+                        // Create provider instance for this specific model
+                        // This uses the SAME approach as collection pipeline
+                        const providerConfig: LLMConfig = {
+                            provider: modelInfo.provider.toLowerCase() as LLMProvider,
+                            model: modelInfo.id,
+                            apiKey: getApiKeyFromEnv(modelInfo.provider),
+                            temperature: 0.1,
+                            maxTokens: 2000,
+                        };
+                        const provider = LLMProviderFactory.create(providerConfig);
+                        const { systemPrompt, userPrompt } = await loadPrompt(testType);
 
-                    if (llmResult.success && llmResult.content) {
-                        const validation = validateTestResult(testType, llmResult.content);
-                        if (!validation.valid) {
-                            passed = false;
+                        if (testType === 'query') {
+                            // Query optimization - uses generateText (same as collection)
+                            const text = await provider.generateText(userPrompt, systemPrompt);
+                            const validation = validateQueryResult(text);
+                            passed = validation.valid;
                             error = validation.error;
+                            content = text;
+
+                        } else if (testType === 'assessment') {
+                            // Content assessment - uses generateJSON (same as collection)
+                            // This will THROW if JSON parsing fails - same behavior as collection!
+                            const assessmentResult = await provider.generateJSON<ContentAssessmentResult>(userPrompt, systemPrompt);
+                            const validation = validateAssessmentResult(assessmentResult);
+                            passed = validation.valid;
+                            error = validation.error;
+                            content = JSON.stringify(assessmentResult, null, 2);
+
+                        } else if (testType === 'tags') {
+                            // Tag generation - uses generateJSON (same as collection)
+                            // This will THROW if JSON parsing fails - same behavior as collection!
+                            const tagsResult = await provider.generateJSON<GeneratedTag[]>(userPrompt, systemPrompt);
+                            const validation = validateTagsResult(tagsResult);
+                            passed = validation.valid;
+                            error = validation.error;
+                            content = JSON.stringify(tagsResult, null, 2);
+
+                        } else if (testType === 'summary') {
+                            // Summary generation - uses generateText (same as collection)
+                            const text = await provider.generateText(userPrompt, systemPrompt);
+                            const validation = validateSummaryResult(text);
+                            passed = validation.valid;
+                            error = validation.error;
+                            content = text;
                         }
+
+                    } catch (err) {
+                        // Catch exceptions from provider (including JSON parse errors)
+                        // This is the SAME behavior as collection - if JSON parsing fails, it throws
+                        passed = false;
+                        error = err instanceof Error ? err.message : String(err);
                     }
 
                     result.tests[testType] = {
                         passed,
-                        duration: llmResult.duration,
+                        duration: Date.now() - testStart,
                         error,
-                        content: llmResult.content
+                        content
                     };
-
-                    // Small delay between tests to avoid rate limits
-                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
 
                 results.push(result);
@@ -326,8 +354,8 @@ export async function POST(request: Request) {
                     result
                 })}\n\n`));
 
-                // Delay between models
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // Small delay between models
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
             // Save results to log file

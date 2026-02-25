@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { logger } from '@/lib/logger';
-import { fetchAvailableModels, LLMModelInfo } from '@/lib/llm-model-fetcher';
+import { fetchAvailableModels, LLMModelInfo, FetchModelsConfig } from '@/lib/llm-model-fetcher';
 import fs from 'fs';
 import path from 'path';
 
@@ -38,35 +38,75 @@ function loadLastTestResults(): { timestamp: string; results: TestResult[] } | n
 
 export async function GET() {
     try {
-        // Current active providers only
-        const providerTypes = ['groq', 'ollama', 'zhipuai'] as const;
+        // Get ENABLED providers from UserLLMConfig (not hardcoded!)
+        const enabledConfigs = await prisma.userLLMConfig.findMany({
+            where: { isEnabled: true },
+            include: {
+                provider: {
+                    select: { type: true, baseUrl: true, name: true }
+                }
+            }
+        });
 
-        // Get Ollama base URL from DB
-        let ollamaBaseUrl: string | undefined;
-        try {
-            const ollamaProvider = await prisma.lLMProviderBase.findFirst({
-                where: { type: 'ollama' }
+        if (enabledConfigs.length === 0) {
+            logger.warn('[LLMModels] No enabled providers found in database');
+            return NextResponse.json({
+                models: [],
+                lastRun: null,
+                results: []
             });
-            ollamaBaseUrl = ollamaProvider?.baseUrl || undefined;
-        } catch (e) {
-            // Ignore if DB lookup fails, will use default
         }
 
+        // Extract unique provider types from enabled configs
+        const providerTypes = [...new Set(
+            enabledConfigs.map(c => c.provider.type)
+        )];
+
+        logger.info('[LLMModels] Fetching models for enabled providers', {
+            providers: providerTypes,
+            configCount: enabledConfigs.length
+        });
+
+        // Helper to get base URL for a provider from user's config
+        const getBaseUrlForProvider = (providerType: string): string | undefined => {
+            const config = enabledConfigs.find(c => c.provider.type === providerType);
+            // Prefer user's custom baseUrl, fallback to provider's default
+            return config?.baseUrl || config?.provider.baseUrl || undefined;
+        };
+
+        // Fetch models for each enabled provider
         const modelPromises = providerTypes.map(async (providerType) => {
-            let config: import('@/lib/llm-model-fetcher').FetchModelsConfig | undefined = undefined;
-            if (providerType === 'ollama' && ollamaBaseUrl) {
-                config = { baseUrl: ollamaBaseUrl };
+            try {
+                let config: FetchModelsConfig | undefined = undefined;
+
+                // Local providers need base URL from config
+                if (providerType === 'ollama' || providerType === 'lmstudio') {
+                    const baseUrl = getBaseUrlForProvider(providerType);
+                    if (baseUrl) {
+                        config = { baseUrl };
+                    }
+                }
+
+                const models = await fetchAvailableModels(providerType, config);
+
+                logger.info(`[LLMModels] Fetched ${models.length} models for ${providerType}`);
+
+                return models.map(m => ({
+                    id: m.externalId,
+                    name: m.name,
+                    provider: providerType.charAt(0).toUpperCase() + providerType.slice(1)
+                }));
+            } catch (error) {
+                // Don't let one provider failure break the entire response
+                logger.error(`[LLMModels] Failed to fetch models for ${providerType}`, { error });
+                return [];
             }
-            const models = await fetchAvailableModels(providerType, config);
-            return models.map(m => ({
-                id: m.externalId,
-                name: m.name,
-                provider: providerType.charAt(0).toUpperCase() + providerType.slice(1)
-            }));
         });
 
         const modelArrays = await Promise.all(modelPromises);
         const models = modelArrays.flat();
+
+        logger.info(`[LLMModels] Total models available for testing: ${models.length}`);
 
         const lastResults = loadLastTestResults();
 
