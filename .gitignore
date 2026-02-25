@@ -72,11 +72,11 @@ test-report*.md
 *.log
 logs/*.log
 
-# Screenshots
-screenshots/
-
 # Dry-run test scripts
 scripts/dry-run-*.js
 
 # Marketing/sales materials
 InsightFlow_*
+
+# Refactor/design reports (internal use)
+refactor/

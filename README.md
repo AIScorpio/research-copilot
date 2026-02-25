@@ -1,115 +1,227 @@
-# Research Copilot: Enhanced AI Paper Management
+# InsightFlow
 
-A powerful, full-stack research management platform designed for deep technical analysis of academic and industrial papers, with a focus on AI in Banking.
+## AI-Powered Research Intelligence Platform
 
-## ✨ Key Features
+*A personal prototype demonstrating AI-augmented research workflows*
 
-### 🚀 Smart Collection
-- **Auto-Collect**: One-click collection of the latest papers on specific themes (e.g., AI in Banking).
-- **Multi-Source Pipeline**: Integrated search across ArXiv, Semantic Scholar, and more.
-- **Custom Filters**: Drill down by publication date, source, and research sector.
-
-### 🧠 AI-Powered Intelligence
-- **Real-time Technical Summaries**: On-demand deep-dive analysis using LLMs (Groq Llama 3.3).
-- **Auto-Tagging**: AI-suggested research topics and industrial categories with a one-click approval workflow.
-- **Context-Aware RAG Chat**: Chat with your entire paper library using Retrieval-Augmented Generation for cited, specific answers.
-
-### 📊 Advanced Dashboard
-- **MacOS-Style Interactive Charts**: "Magnetic" zoom effects on research volume and methodology distribution.
-- **Intelligence Panels**: Stable, high-readout info panels for quick data inspection.
-- **Collection History**: Interactive calendar popup showing daily research growth.
-
-### 🛠️ Repository Management
-- **Action Menu**: Hover over any paper card to quickly delete or edit metadata.
-- **Metadata Correction**: Directly edit publication dates to ensure library accuracy.
-- **Custom Tagging**: Manage your own taxonomy alongside AI-generated tags.
+**Currently tuned for AI in Banking — designed to be domain-agnostic**
 
 ---
 
-## 🛠️ Tech Stack
-- **Framework**: Next.js 15+ (App Router)
-- **Database**: Prisma with SQLite
-- **UI Architecture**: Tailwind CSS + Shadcn UI + Recharts
-- **AI/LLM**: Groq SDK (Llama 3.3)
-- **Search Integrations**: ArXiv, Semantic Scholar
+## Executive Summary
+
+**InsightFlow** is an intelligent research management platform that helps teams discover, analyze, and act on relevant research more efficiently. What started as a personal project to practice innovation has evolved into a working prototype that demonstrates how AI can augment research workflows—reducing manual effort, accelerating insight generation, and centralizing knowledge.
 
 ---
 
-## 🚀 Local Setup
+## The Opportunity
 
-### 1. Requirements
+Research workflows face common challenges: information overload, scattered knowledge, and time-consuming manual synthesis. InsightFlow explores how AI can address these challenges by automating discovery, intelligently filtering content, and generating actionable insights.
+
+---
+
+## Core Capabilities
+
+### Working Features
+
+| Feature | Description | Value |
+|---------|-------------|-------|
+| **Intelligent Collection** | Multi-source aggregation from ArXiv, Semantic Scholar, RSS feeds with AI-powered relevance filtering | Cut through noise, focus on what matters |
+| **Technology Radar** | Thoughtworks-style quadrant view (Adopt/Trial/Assess/Hold) tracking technology maturity and relevance | Strategic view of emerging technologies |
+| **Export Hub** | One-click generation of PowerPoint decks, email digests, and social media posts | Share insights professionally, instantly |
+| **AI-Powered Analysis** | Real-time technical summaries, auto-tagging, and context-aware RAG chat with your paper library | Deep understanding without the manual effort |
+
+### Potential Future Enhancements
+
+| Feature | Vision |
+|---------|--------|
+| **Competitive Intelligence** | Track publications and patents from major financial institutions |
+| **PoC Recommendations** | AI-generated proof-of-concept opportunities with effort estimates |
+| **Regulatory Alerts** | Real-time monitoring from BIS, ECB, FCA, Federal Reserve |
+
+---
+
+## How It Works
+
+### Collection Modes
+
+| Mode | Description |
+|------|-------------|
+| **Auto** | Scheduled daily collection with configurable queries |
+| **Manual** | User-initiated collection with custom parameters |
+| **Pipeline** | Advanced mode with strict filtering for focused research |
+
+### AI Augmentation Pipeline
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Query     │ →  │   Multi-    │ →  │   Content   │ →  │    Tag      │ →  │   Summary   │
+│ Optimization│    │   Source    │    │ Assessment  │    │ Generation  │    │ Generation  │
+│   (AI)      │    │   Search    │    │   (AI)      │    │   (AI)      │    │   (AI)      │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+```
+
+| Step | What AI Does | Impact |
+|------|--------------|--------|
+| **Query Optimization** | Transforms user query into domain-specific Boolean search with tech synonyms, relevant applications, and noise exclusions | Higher precision, less irrelevant results |
+| **Content Assessment** | 4-dimensional scoring: Technical depth, Business relevance, Timeliness, Practicality | Only high-quality papers retained with transparent rationale |
+| **Tag Generation** | Generates taxonomy-based tags from categories: AI technology, Business area, Risk domain, Methodology | Powers downstream analytics and navigation |
+| **Summary Generation** | Fact-based technical summaries—only what's explicitly stated in the paper | Quick understanding without reading full abstract |
+
+### Examples
+
+**Query Optimization**
+```
+Input: "explainable AI"
+
+Output (3-AND Boolean query):
+("explainable AI" OR "XAI" OR "interpretability" OR "model transparency")
+AND ("credit risk" OR "lending" OR "loan approval" OR "risk assessment")
+AND ("banking" OR "financial")
+NOT ("medical" OR "healthcare" OR "autonomous vehicle")
+```
+
+**Content Assessment**
+```
+Paper: "Unlocking the Black Box: A Five-Dimensional Framework
+        for Evaluating Explainable AI in Credit Risk"
+
+Scores:
+  Technical:    8/10
+  Business:     10/10
+  Timeliness:   9/10
+  Practicality: 8/10
+  ─────────────────
+  Final:        8.9/10 → Included ✓
+```
+
+**Auto-Generated Tags**
+```
+AI Technology:  explainable-ai, neural-networks
+Business Area:  model-governance
+Risk Category:  credit-risk
+Methodology:    predictive-modeling
+```
+
+### Downstream Impact
+
+AI-generated metadata flows through to power intelligent features:
+
+| Source | Powers |
+|--------|--------|
+| **Tags** | Dashboard topic charts, Technology Radar categorization, Paper filtering & search |
+| **Scores** | Technology Radar maturity/relevance calculations, Quality thresholds |
+| **Summaries** | Paper cards, Export outputs (PPT, digests), Future: RAG chat context |
+| **Assessment** | Transparency on why papers are included, Future: PoC recommendations |
+
+---
+
+## Screenshots
+
+### Dashboard Overview
+![Dashboard](screenshots/dashboard.png)
+*Stats cards, topic distribution (powered by tags), methodology breakdown*
+
+### Paper Library
+![Paper Library](screenshots/library-paper%20cards.png)
+*Search, filters, AI-generated summaries, assessment scores, tags*
+
+### Paper Detail
+![Paper Detail](screenshots/paper%20detail.png)
+*Individual paper view with AI summary, assessment scores, and auto-generated tags*
+
+### Technology Radar
+![Technology Radar](screenshots/tech%20radar-1.png)
+![Technology Radar Detail](screenshots/tech%20radar-2.png)
+*Quadrant view powered by aggregated tags and scores, with maturity/relevance indicators*
+
+### Collection Pipeline
+![Collection Pipeline](screenshots/pipeline%20collection.png)
+*Agent-driven collection with real-time logs showing each AI augmentation step*
+
+### Export Hub
+![Export Hub](screenshots/export%20hub-1.png)
+![Export Hub Preview](screenshots/export%20hub-2.png)
+*One-click PowerPoint, email digest, and social media exports*
+
+### Settings
+![Settings LLM](screenshots/settings-1.png)
+![Settings Prompts](screenshots/settings-2.png)
+*Configure LLM providers, test model compatibility, and customize AI prompts*
+
+---
+
+## Technical Overview
+
+| Aspect | Implementation |
+|--------|----------------|
+| **Framework** | Next.js with TypeScript |
+| **AI/LLM** | Multi-LLM support with automatic fallback |
+| **Database** | Prisma ORM with SQLite |
+| **UI** | React with Tailwind CSS |
+
+---
+
+## Getting Started
+
+### Requirements
 - Node.js 18+
-- A [Groq API Key](https://console.groq.com/) for AI features.
+- A [Groq API Key](https://console.groq.com/) for AI features
 
-### 2. Installation
+### Installation
+
 ```bash
-git clone <your-repo-url>
-cd researcher
+git clone https://github.com/AIScorpio/research-copilot.git
+cd research-copilot
 npm install
 ```
 
-### 3. Environment Configuration
+### Environment Configuration
+
 Create a `.env` file in the root directory:
+
 ```env
 DATABASE_URL="file:./dev.db"
 LLM_PROVIDER="groq"
 GROQ_API_KEY="your_groq_key_here"
 ```
 
-### 4. Database Setup
+### Database Setup
+
 ```bash
 npx prisma db push
 npx prisma generate
 ```
 
-### 5. Start Application
+### Start Application
+
 ```bash
 npm run dev
 ```
 
 ---
 
-## 🚀 Advanced Workflow: Auto-Sync
+## Implementation Status
 
-To make your life easier, I've included a `sync.sh` script. This will automatically **bundle** (build) the project, check for errors, and **push** to GitHub in one step.
-
-```bash
-# Run with a default timestamp message
-./sync.sh
-
-# Run with a custom commit message
-./sync.sh "implemented new sidebar icons"
-```
+| Status | Features |
+|--------|----------|
+| **Working** | Intelligent Collection (Auto/Manual/Pipeline modes), AI Augmentation (Query/Assessment/Tags/Summary), Technology Radar, Export Hub, RAG Chat |
+| **Planned** | Competitive Intelligence, PoC Recommendations, Regulatory Alerts |
 
 ---
 
-## 🚢 GitHub Deployment Guidance
+## Security Considerations
 
-### Pushing to a New Repository
-1. **Create a new empty repository** on your GitHub account.
-2. **Open your terminal** in this project folder.
-3. **Execute the following commands**:
+Designed with enterprise security in mind:
+- OAuth 2.0 authentication with local data storage
+- Audit logging and user-specific configurations
 
-```bash
-# Initialize git if not already done
-git init
+---
 
-# Add all project files
-git add .
+<div align="center">
 
-# Commit changes
-git commit -m "Initial release: Enhanced Research Copilot"
+*Leon X Li | Feb. 2026*
 
-# Rename branch to main
-git branch -M main
+*Built to explore AI-augmented research workflows*
 
-# Add your GitHub repository as the remote
-# REPLACE with your actual repo URL
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-
-# Push to GitHub
-git push -u origin main
-```
-
-> [!IMPORTANT]
-> **Do NOT push your `.env` file!** It contains sensitive API keys. The `.gitignore` is already configured to skip it.
+</div>
