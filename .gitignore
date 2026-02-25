@@ -53,3 +53,21 @@ prisma/*.db-journal
 # Root level database
 dev.db
 *.db-journal
+
+# Backup files
+backup_*.json
+*.backup
+*.bak
+
+# Test reports and outputs
+*_test_report.md
+test-report*.md
+
+# One-off test/verification scripts at root level
+/test-*.ts
+/verification_*.ts
+/debug_*.ts
+
+# Log files
+*.log
+logs/*.log
