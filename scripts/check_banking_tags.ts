@@ -39,7 +39,7 @@ async function main() {
   });
   
   console.log(`\nFound ${papersWithBusinessAreaTags.length} papers with business-area tags (sample):`);
-  papersWithBusinessAreaTags.forEach((paper) => {
+  papersWithBusinessAreaTags.forEach((paper: typeof papersWithBusinessAreaTags[0]) => {
     const businessTagNames = paper.tags.map(pt => pt.tag.name).join(', ');
     console.log(`  - ${paper.title}`);
     console.log(`    Tags: ${businessTagNames}`);
