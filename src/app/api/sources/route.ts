@@ -25,8 +25,8 @@ export async function GET() {
         }
 
         const allSources = await prisma.source.findMany({ orderBy: { createdAt: 'asc' } });
-        const uniqueNames = new Set();
-        const duplicates = [];
+        const uniqueNames = new Set<string>();
+        const duplicates: string[] = [];
 
         for (const s of allSources) {
             if (uniqueNames.has(s.name)) {

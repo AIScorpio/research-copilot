@@ -67,7 +67,7 @@ export class TwitterOAuth {
     private sha256(message: string): string {
         // This is a simplified implementation
         // In production, use crypto.subtle.digest('SHA-256', message)
-        const hash = [];
+        const hash: number[] = [];
         for (let i = 0; i < message.length; i++) {
             hash.push(message.charCodeAt(i));
         }

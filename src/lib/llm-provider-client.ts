@@ -123,7 +123,7 @@ export async function callLLM(
 
         if (config.bodyFormat === 'openai') {
             // OpenAI-compatible format (Groq, ZhipuAI, etc.)
-            const messages = [];
+            const messages: Array<{ role: string; content: string }> = [];
             if (systemPrompt) {
                 messages.push({ role: 'system', content: systemPrompt });
             }
@@ -140,7 +140,7 @@ export async function callLLM(
             };
         } else if (config.bodyFormat === 'ollama') {
             // Ollama-specific format
-            const messages = [];
+            const messages: Array<{ role: string; content: string }> = [];
             if (systemPrompt) {
                 messages.push({ role: 'system', content: systemPrompt });
             }
