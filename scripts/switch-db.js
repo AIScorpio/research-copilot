@@ -14,6 +14,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// Load .env file for local development
+require('dotenv').config();
+
 const dbUrl = process.env.DATABASE_URL || '';
 
 // Detect provider from URL
