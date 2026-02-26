@@ -58,7 +58,7 @@ export async function GET() {
         }
 
         // Extract unique provider types from enabled configs
-        const providerTypes = [...new Set(
+        const providerTypes: string[] = [...new Set(
             enabledConfigs.map(c => c.provider.type)
         )];
 
