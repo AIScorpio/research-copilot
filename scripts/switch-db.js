@@ -45,7 +45,7 @@ const destFile = path.join(__dirname, '..', 'prisma', 'schema.prisma');
 // Check if source file exists
 if (!fs.existsSync(sourceFile)) {
   console.error(`Error: Schema template not found: ${sourceFile}`);
-  console.error(`Available providers: sqlite, postgres`);
+  console.error(`Available providers: sqlite, postgresql`);
   process.exit(1);
 }
 
