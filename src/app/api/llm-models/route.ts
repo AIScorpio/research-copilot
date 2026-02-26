@@ -58,9 +58,9 @@ export async function GET() {
         }
 
         // Extract unique provider types from enabled configs
-        const providerTypes: string[] = [...new Set(
+        const providerTypes = Array.from(new Set(
             enabledConfigs.map(c => c.provider.type)
-        )];
+        )) as string[];
 
         logger.info('[LLMModels] Fetching models for enabled providers', {
             providers: providerTypes,
