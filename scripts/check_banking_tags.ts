@@ -9,7 +9,7 @@ async function main() {
   });
   
   console.log(`Found ${businessAreaTags.length} business-area tags:`);
-  businessAreaTags.forEach(tag => {
+  businessAreaTags.forEach((tag: { name: string; category?: string | null }) => {
     console.log(`  - ${tag.name} (category: ${tag.category || 'none'})`);
   });
   
