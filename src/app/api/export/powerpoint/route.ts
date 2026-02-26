@@ -54,7 +54,7 @@ export async function POST(request: Request) {
             take: limit
         });
 
-        const formattedPapers = papers.map(p => ({
+        const formattedPapers = papers.map((p: typeof papers[0]) => ({
             id: p.id,
             title: p.title,
             abstract: p.abstract || undefined,
