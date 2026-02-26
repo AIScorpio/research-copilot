@@ -87,7 +87,7 @@ export async function GET() {
                     }
                 }
 
-                const models = await fetchAvailableModels(providerType, config);
+                const models = await fetchAvailableModels(providerType, config as FetchModelsConfig | undefined);
 
                 logger.info(`[LLMModels] Fetched ${models.length} models for ${providerType}`);
 
