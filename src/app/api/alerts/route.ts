@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
     const totalCount = await prisma.regulatoryAlert.count({ where });
 
-    const alertsWithKeywords = alerts.map(alert => {
+    const alertsWithKeywords = alerts.map((alert: typeof alerts[0]) => {
       const keywords = (() => {
         try {
           return JSON.parse(alert.keywords);
