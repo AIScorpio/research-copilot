@@ -33,7 +33,7 @@ async function main() {
     orderBy: { name: 'asc' }
   });
 
-  remainingSources.forEach(source => {
+  remainingSources.forEach((source: typeof remainingSources[0]) => {
     console.log(`  ✅ ${source.name}: ${source.url}`);
   });
 
