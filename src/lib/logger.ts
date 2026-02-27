@@ -47,14 +47,19 @@ class Logger {
     this.isDevelopment = process.env.NODE_ENV !== 'production';
     this.configPath = join(process.cwd(), 'config', 'logging.json');
     this.config = this.loadConfig();
-    this.ensureDirectories();
-    this.scheduleArchiveCleanup();
+    // Only ensure directories if file logging is enabled and we're not in a serverless environment
+    if (this.config.enableFileLogging && !process.env.VERCEL) {
+      this.ensureDirectories();
+      this.scheduleArchiveCleanup();
+    }
   }
 
   private loadConfig(): LogConfig {
+    // Disable file logging on Vercel (serverless environment has read-only filesystem)
+    const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
     const defaultConfig: LogConfig = {
       globalLevel: 'info',
-      enableFileLogging: true,
+      enableFileLogging: !isVercel,
       enableConsoleLogging: true,
       logDirectory: 'logs',
       maxFileSize: 52428800,
