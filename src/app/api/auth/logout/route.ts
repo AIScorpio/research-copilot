@@ -7,17 +7,17 @@ export async function POST() {
   // Clear auth cookie
   cookieStore.set('auth_user', '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'lax',
     path: '/',
     maxAge: 0
   });
-  
+
   // Clear CSRF cookie
   cookieStore.set('csrf_token', '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'lax',
     path: '/',
     maxAge: 0
   });

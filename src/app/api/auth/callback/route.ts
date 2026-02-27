@@ -131,8 +131,8 @@ async function setAuthCookies(userId: string): Promise<void> {
   // Set auth user cookie
   cookieStore.set('auth_user', userId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7, // 7 days
   });

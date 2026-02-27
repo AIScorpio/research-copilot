@@ -21,8 +21,8 @@ export async function validateCSRFToken(request: Request, cookies: any): Promise
 export function setCSRFCookie(cookies: any, token: string): void {
   cookies.set(CSRF_TOKEN_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'lax',
     maxAge: 60 * 60 * 24, // 24 hours
     path: '/'
   });
