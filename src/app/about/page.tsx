@@ -13,13 +13,13 @@ export default function AboutPage() {
                     <CardHeader>
                         <CardTitle>Application Overview</CardTitle>
                         <CardDescription>
-                            InsightFlow is an automated research pipeline for AI research in banking
+                            InsightFlow is an automated research pipeline that is built domain-agnostic, now tuned for AI research in banking
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div>
                             <h3 className="font-semibold mb-2">Project Name</h3>
-                            <p className="text-muted-foreground">AIScorpio</p>
+                            <p className="text-muted-foreground">research-copilot</p>
                         </div>
                         <div>
                             <h3 className="font-semibold mb-2">Version</h3>
@@ -31,30 +31,20 @@ export default function AboutPage() {
                                 Automated research pipeline for banking AI with features including:
                             </p>
                             <ul className="list-disc list-inside text-muted-foreground mt-2 space-y-1">
-                                <li>Auto-collection of academic papers from arXiv</li>
+                                <li>Auto-collection of academic papers from multiple sources</li>
                                 <li>Intelligent paper library management</li>
                                 <li>AI-powered copilot for research assistance</li>
                                 <li>Automated research pipeline execution</li>
                                 <li>Paper archiving and organization</li>
                             </ul>
                         </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Author & Development</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            <div>
-                                <h3 className="font-semibold mb-1">Developer</h3>
-                                <p className="text-muted-foreground">Leon</p>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold mb-1">Contact</h3>
-                                <p className="text-muted-foreground">demo@example.com</p>
-                            </div>
+                        <div>
+                            <h3 className="font-semibold mb-2">Builder</h3>
+                            <p className="text-muted-foreground">AIScorpio</p>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold mb-2">Contact</h3>
+                            <p className="text-muted-foreground">leonchao@yeah.net</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -66,11 +56,11 @@ export default function AboutPage() {
                     <CardContent className="space-y-3 text-sm text-muted-foreground">
                         <p>
                             InsightFlow is provided as-is for research and educational purposes. The application
-                            automatically collects and processes academic papers from arXiv, a public repository.
+                            automatically collects and processes academic papers from e.g. arXiv, a public repository.
                         </p>
                         <Separator />
                         <p>
-                            <strong>Data Sources:</strong> All papers are sourced from arXiv.org, an open-access
+                            <strong>Data Sources:</strong> All papers are currently sourced ONLY from arXiv.org, an open-access
                             archive for scholarly articles. Users are responsible for complying with arXiv&apos;s terms
                             of service and copyright policies.
                         </p>
@@ -113,7 +103,7 @@ export default function AboutPage() {
                             </div>
                             <div>
                                 <span className="font-semibold">AI Model:</span>
-                                <span className="text-muted-foreground ml-2">Claude</span>
+                                <span className="text-muted-foreground ml-2">Default use Groq with multi-LLM support with automatic fallback</span>
                             </div>
                         </div>
                     </CardContent>
