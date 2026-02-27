@@ -92,6 +92,10 @@ class Logger {
       if (existsSync(this.configPath)) {
         const fileContent = readFileSync(this.configPath, 'utf-8');
         const loadedConfig = JSON.parse(fileContent);
+        // Force disable file logging on Vercel regardless of config file
+        if (isVercel) {
+          loadedConfig.enableFileLogging = false;
+        }
         return { ...defaultConfig, ...loadedConfig };
       }
     } catch (error) {
