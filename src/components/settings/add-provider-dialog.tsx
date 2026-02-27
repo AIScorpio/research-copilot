@@ -172,12 +172,12 @@ export function AddProviderDialog({
 
                         {selectedProvider?.isCloud && (
                             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                                <p className="font-medium text-yellow-800">请先在 .env 文件中添加 API Key：</p>
+                                <p className="font-medium text-yellow-800">Please add API Key to .env file first:</p>
                                 <p className="text-yellow-700 mt-1">
                                     {getApiKeyEnvName(selectedProvider.type)}=your_key
                                 </p>
                                 <p className="text-yellow-600 text-xs mt-1">
-                                    保存后重启服务器，然后点击测试
+                                    Save and restart server, then click test
                                 </p>
                             </div>
                         )}
