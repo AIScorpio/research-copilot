@@ -95,6 +95,8 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
                         <SelectContent>
                             <SelectItem value="newest">Newest First</SelectItem>
                             <SelectItem value="oldest">Oldest First</SelectItem>
+                            <SelectItem value="relevance-desc">Relevance: High to Low</SelectItem>
+                            <SelectItem value="relevance-asc">Relevance: Low to High</SelectItem>
                         </SelectContent>
                     </Select>
 

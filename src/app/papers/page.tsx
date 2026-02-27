@@ -56,15 +56,23 @@ export default async function PapersPage({
         whereClause.AND = tagConditions;
     }
 
+    // Build orderBy based on sort parameter
+    let orderBy: any = { collectedAt: 'desc' }; // default newest first
+    if (sort === 'oldest') {
+        orderBy = { collectedAt: 'asc' };
+    } else if (sort === 'relevance-desc') {
+        orderBy = { relevanceScore: 'desc' };
+    } else if (sort === 'relevance-asc') {
+        orderBy = { relevanceScore: 'asc' };
+    }
+
     const papers = await prisma.paper.findMany({
         where: whereClause,
         include: {
             tags: { include: { tag: true } },
             favoritedBy: true
         },
-        orderBy: {
-            collectedAt: sort === 'oldest' ? 'asc' : 'desc'
-        }
+        orderBy: orderBy
     });
 
     const tags = await prisma.tag.findMany({
