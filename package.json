@@ -6,7 +6,7 @@
   "description": "Applied AI Research Intelligence Platform for Banking & Finance",
   "scripts": {
     "dev": "node scripts/switch-db.js && prisma generate && next dev",
-    "build": "node scripts/switch-db.js && prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "node scripts/switch-db.js && prisma generate && prisma db push --accept-data-loss && npx prisma db seed && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
