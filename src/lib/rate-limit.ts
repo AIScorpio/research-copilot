@@ -1,14 +1,32 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(100, "1 m"),
-  analytics: true,
-  prefix: "ratelimit",
-});
+// Check if Redis is configured
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const isRedisConfigured = redisUrl && redisToken;
+
+// Only create rate limiter if Redis is configured
+const ratelimit = isRedisConfigured 
+  ? new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(100, "1 m"),
+      analytics: true,
+      prefix: "ratelimit",
+    })
+  : null;
 
 export async function rateLimit(identifier: string) {
+  // Skip rate limiting if Redis is not configured
+  if (!ratelimit) {
+    return {
+      allowed: true,
+      limit: 100,
+      remaining: 100,
+      reset: Date.now() + 60000
+    };
+  }
+
   const { success, limit, remaining, reset } = await ratelimit.limit(identifier);
   
   if (!success) {
