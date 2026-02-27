@@ -159,6 +159,12 @@ export async function GET() {
     try {
         const user = await requireAuth();
 
+        // Initialize base providers if database is empty (first run)
+        const providerCount = await prisma.lLMProviderBase.count();
+        if (providerCount === 0) {
+            await initializeBaseProviders();
+        }
+
         const configs = await prisma.userLLMConfig.findMany({
             where: {
                 userId: user.id,
