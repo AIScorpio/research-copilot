@@ -358,25 +358,29 @@ export async function POST(request: Request) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            // Save results to log file
-            const logsDir = path.join(process.cwd(), 'logs');
-            if (!fs.existsSync(logsDir)) {
-                fs.mkdirSync(logsDir, { recursive: true });
-            }
-
             const timestamp = new Date().toISOString();
-            const logData = {
-                timestamp,
-                duration: Date.now() - startTime,
-                results
-            };
 
-            // Save timestamped log
-            const logFileName = `llm-model-test-${timestamp.split('T')[0]}_${timestamp.split('T')[1].split(':').slice(0, 2).join('-')}.log`;
-            fs.writeFileSync(path.join(logsDir, logFileName), JSON.stringify(logData, null, 2));
+            // Save results to log file (only on non-Vercel environments)
+            const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+            if (!isVercel) {
+                const logsDir = path.join(process.cwd(), 'logs');
+                if (!fs.existsSync(logsDir)) {
+                    fs.mkdirSync(logsDir, { recursive: true });
+                }
 
-            // Update latest symlink/copy
-            fs.writeFileSync(path.join(logsDir, 'llm-model-test-latest.log'), JSON.stringify(logData, null, 2));
+                const logData = {
+                    timestamp,
+                    duration: Date.now() - startTime,
+                    results
+                };
+
+                // Save timestamped log
+                const logFileName = `llm-model-test-${timestamp.split('T')[0]}_${timestamp.split('T')[1].split(':').slice(0, 2).join('-')}.log`;
+                fs.writeFileSync(path.join(logsDir, logFileName), JSON.stringify(logData, null, 2));
+
+                // Update latest symlink/copy
+                fs.writeFileSync(path.join(logsDir, 'llm-model-test-latest.log'), JSON.stringify(logData, null, 2));
+            }
 
             // Send complete
             await writer.write(encoder.encode(`data: ${JSON.stringify({
