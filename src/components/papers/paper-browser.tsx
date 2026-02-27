@@ -62,6 +62,16 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
         router.replace(`${pathname}?${params.toString()}`);
     }
 
+    const handleRelevanceChange = (value: string) => {
+        const params = new URLSearchParams(searchParams);
+        if (value === 'all') {
+            params.delete('relevance');
+        } else {
+            params.set('relevance', value);
+        }
+        router.replace(`${pathname}?${params.toString()}`);
+    }
+
     const handleTagChange = (value: string) => {
         const params = new URLSearchParams(searchParams);
         if (value === 'all') {
@@ -90,13 +100,23 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
                 <div className="flex items-center gap-2 pb-4 border-b">
                     <Select defaultValue="newest" onValueChange={handleSortChange}>
                         <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Sort by" />
+                            <SelectValue placeholder="Sort by Date" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="newest">Newest First</SelectItem>
                             <SelectItem value="oldest">Oldest First</SelectItem>
-                            <SelectItem value="relevance-desc">Relevance: High to Low</SelectItem>
-                            <SelectItem value="relevance-asc">Relevance: Low to High</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select onValueChange={handleRelevanceChange}>
+                        <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Filter by Relevance" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Relevance</SelectItem>
+                            <SelectItem value="high">High Relevance (8+)</SelectItem>
+                            <SelectItem value="medium">Medium Relevance (6-7)</SelectItem>
+                            <SelectItem value="low">Low Relevance (0-5)</SelectItem>
                         </SelectContent>
                     </Select>
 

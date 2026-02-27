@@ -11,6 +11,7 @@ export default async function PapersPage({
         category?: string
         tag?: string
         sort?: string
+        relevance?: string
     }>
 }) {
     const resolvedParams = await searchParams;
@@ -18,6 +19,7 @@ export default async function PapersPage({
     const category = resolvedParams?.category;
     const tag = resolvedParams?.tag;
     const sort = resolvedParams?.sort || "newest";
+    const relevance = resolvedParams?.relevance;
 
     const whereClause: any = {};
 
@@ -56,14 +58,21 @@ export default async function PapersPage({
         whereClause.AND = tagConditions;
     }
 
+    // Relevance score filter
+    if (relevance) {
+        if (relevance === 'high') {
+            whereClause.relevanceScore = { gte: 8.0 };
+        } else if (relevance === 'medium') {
+            whereClause.relevanceScore = { gte: 6.0, lt: 8.0 };
+        } else if (relevance === 'low') {
+            whereClause.relevanceScore = { lt: 6.0 };
+        }
+    }
+
     // Build orderBy based on sort parameter
     let orderBy: any = { collectedAt: 'desc' }; // default newest first
     if (sort === 'oldest') {
         orderBy = { collectedAt: 'asc' };
-    } else if (sort === 'relevance-desc') {
-        orderBy = { relevanceScore: 'desc' };
-    } else if (sort === 'relevance-asc') {
-        orderBy = { relevanceScore: 'asc' };
     }
 
     const papers = await prisma.paper.findMany({
