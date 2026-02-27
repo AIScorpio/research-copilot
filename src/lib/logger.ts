@@ -1,7 +1,3 @@
-import { join } from 'path';
-import { existsSync, mkdirSync, statSync, readdirSync, renameSync, unlinkSync, writeFileSync, appendFileSync, readFileSync } from 'fs';
-import { createGzip, gunzipSync } from 'zlib';
-
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
 interface LogConfig {
@@ -39,23 +35,80 @@ class Logger {
   private config: LogConfig;
   private configPath: string;
   private isDevelopment: boolean;
+  private isBrowser: boolean;
   private fileHandles: Map<string, string> = new Map();
   private lastCheckTime: Map<string, number> = new Map();
   private checkInterval: number = 60000;
+  private fsModule: any = null;
+  private pathModule: any = null;
+  private zlibModule: any = null;
 
   constructor() {
     this.isDevelopment = process.env.NODE_ENV !== 'production';
-    this.configPath = join(process.cwd(), 'config', 'logging.json');
+    this.isBrowser = typeof window !== 'undefined';
+    this.configPath = this.isBrowser ? '' : `${process.cwd()}/config/logging.json`;
     this.config = this.loadConfig();
-    // Only ensure directories if file logging is enabled and we're not in a serverless environment
-    if (this.config.enableFileLogging && !process.env.VERCEL) {
-      this.ensureDirectories();
-      this.scheduleArchiveCleanup();
+    
+    // Only setup file logging in server environment
+    if (!this.isBrowser && this.config.enableFileLogging && !process.env.VERCEL) {
+      this.loadNodeModules().then(() => {
+        this.ensureDirectories();
+        this.scheduleArchiveCleanup();
+      });
+    }
+  }
+
+  private async loadNodeModules(): Promise<void> {
+    if (this.isBrowser) return;
+    
+    try {
+      this.fsModule = await import('fs');
+      this.pathModule = await import('path');
+      this.zlibModule = await import('zlib');
+    } catch (error) {
+      // Node modules not available (browser environment)
+      this.fsModule = null;
+      this.pathModule = null;
+      this.zlibModule = null;
     }
   }
 
   private loadConfig(): LogConfig {
-    // Disable file logging on Vercel (serverless environment has read-only filesystem)
+    // Browser environment: minimal config
+    if (this.isBrowser) {
+      return {
+        globalLevel: 'info',
+        enableFileLogging: false,
+        enableConsoleLogging: true,
+        logDirectory: 'logs',
+        maxFileSize: 52428800,
+        maxFiles: 15,
+        archiveDirectory: 'logs/archive',
+        archiveRetentionDays: 180,
+        compressArchive: true,
+        sanitizeSensitive: true,
+        sensitiveFields: ['apiKey', 'secret', 'password', 'token', 'credential'],
+        files: {
+          app: { enabled: true, level: 'info', includeAll: true },
+          error: { enabled: true, level: 'error' },
+          collection: { enabled: true, level: 'debug' },
+          llm: { enabled: true, level: 'debug' },
+          api: { enabled: true, level: 'info' },
+          auth: { enabled: true, level: 'info' },
+          config: { enabled: true, level: 'info' }
+        },
+        tagToFile: {
+          COLLECTION: 'collection',
+          LLM: 'llm',
+          API: 'api',
+          AUTH: 'auth',
+          CONFIG: 'config',
+          ERROR: 'error'
+        }
+      };
+    }
+
+    // Server environment: load from config file
     const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
     const defaultConfig: LogConfig = {
       globalLevel: 'info',
@@ -88,9 +141,15 @@ class Logger {
       }
     };
 
+    if (this.isBrowser) {
+      return defaultConfig;
+    }
+
     try {
-      if (existsSync(this.configPath)) {
-        const fileContent = readFileSync(this.configPath, 'utf-8');
+      // Dynamic import for server-side only
+      const fs = require('fs');
+      if (fs.existsSync(this.configPath)) {
+        const fileContent = fs.readFileSync(this.configPath, 'utf-8');
         const loadedConfig = JSON.parse(fileContent);
         // Force disable file logging on Vercel regardless of config file
         if (isVercel) {
@@ -106,23 +165,24 @@ class Logger {
   }
 
   private ensureDirectories(): void {
-    if (!this.config.enableFileLogging) return;
+    if (this.isBrowser || !this.config.enableFileLogging || !this.fsModule) return;
 
-    const logDir = join(process.cwd(), this.config.logDirectory);
-    if (!existsSync(logDir)) {
-      mkdirSync(logDir, { recursive: true });
+    const logDir = this.pathModule.join(process.cwd(), this.config.logDirectory);
+    if (!this.fsModule.existsSync(logDir)) {
+      this.fsModule.mkdirSync(logDir, { recursive: true });
     }
 
-    const archiveDir = join(process.cwd(), this.config.archiveDirectory);
-    if (!existsSync(archiveDir)) {
-      mkdirSync(archiveDir, { recursive: true });
+    const archiveDir = this.pathModule.join(process.cwd(), this.config.archiveDirectory);
+    if (!this.fsModule.existsSync(archiveDir)) {
+      this.fsModule.mkdirSync(archiveDir, { recursive: true });
     }
   }
 
   private getLogFilePath(fileKey: string): string {
+    if (!this.pathModule) return '';
     const date = new Date().toISOString().split('T')[0];
     const filename = `${fileKey}-${date}.log`;
-    return join(process.cwd(), this.config.logDirectory, filename);
+    return this.pathModule.join(process.cwd(), this.config.logDirectory, filename);
   }
 
   private formatTimestamp(date: Date): string {
@@ -135,7 +195,7 @@ class Logger {
 
     const sanitized: Record<string, any> = {};
     
-    for (const [key, value] of Object.entries(context)) {
+    for (const [key, value] of Object.entries(context || {})) {
       if (this.config.sensitiveFields.some(field => 
         key.toLowerCase().includes(field.toLowerCase())
       )) {
@@ -158,152 +218,127 @@ class Logger {
     if (!context || Object.keys(context).length === 0) return '';
     
     const sanitized = this.sanitizeContext(context);
-    const lines: string[] = [];
+    if (!sanitized) return '';
     
-    const formatValue = (val: any, indent: string = '  '): string => {
-      if (typeof val === 'object' && val !== null) {
-        const entries = Object.entries(val);
-        if (entries.length === 0) return '{}';
-        return '\n' + entries.map(([k, v]) => 
-          `${indent}${k}: ${typeof v === 'object' && v !== null ? formatValue(v, indent + '  ') : v}`
-        ).join('\n');
-      }
-      return String(val);
-    };
-
-    for (const [key, value] of Object.entries(sanitized || {})) {
-      if (typeof value === 'object' && value !== null) {
-        lines.push(`  ${key}:${formatValue(value, '  ')}`);
-      } else {
-        lines.push(`  ${key}: ${value}`);
-      }
-    }
-
-    return '\n' + lines.join('\n');
+    return ' | ' + Object.entries(sanitized)
+      .map(([key, value]) => {
+        if (typeof value === 'object') {
+          return `${key}=${JSON.stringify(value)}`;
+        }
+        return `${key}=${value}`;
+      })
+      .join(' | ');
   }
 
-  private extractTag(message: string): string {
-    const match = message.match(/^\[([A-Z_-]+)\]/);
-    return match ? match[1] : 'APP';
+  private shouldLog(level: LogLevel, minLevel: LogLevel): boolean {
+    return LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[minLevel];
   }
 
-  private shouldLog(level: LogLevel, fileLevel: LogLevel): boolean {
-    return LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[fileLevel];
+  private getTagFromMessage(message: string): string {
+    const match = message.match(/^\[([^\]]+)\]/);
+    return match ? match[1] : 'app';
   }
 
   private async checkFileRotation(filePath: string, fileKey: string): Promise<void> {
+    if (this.isBrowser || !this.fsModule) return;
+    
     const now = Date.now();
     const lastCheck = this.lastCheckTime.get(fileKey) || 0;
     
     if (now - lastCheck < this.checkInterval) return;
+    
     this.lastCheckTime.set(fileKey, now);
-
+    
     try {
-      if (!existsSync(filePath)) return;
-      
-      const stats = statSync(filePath);
-      if (stats.size >= this.config.maxFileSize) {
-        await this.rotateFile(filePath, fileKey);
+      if (this.fsModule.existsSync(filePath)) {
+        const stats = this.fsModule.statSync(filePath);
+        if (stats.size > this.config.maxFileSize) {
+          await this.rotateFile(filePath, fileKey);
+        }
       }
-
-      await this.cleanupOldFiles(fileKey);
     } catch (error) {
-      console.error(`[LOGGER] Rotation check failed for ${fileKey}:`, error);
+      // Silent fail for rotation errors
     }
   }
 
   private async rotateFile(filePath: string, fileKey: string): Promise<void> {
+    if (this.isBrowser || !this.fsModule) return;
+    
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const rotatedName = `${fileKey}-${timestamp}.log`;
-    const archivePath = join(process.cwd(), this.config.archiveDirectory, rotatedName);
-
+    const archivedName = `${fileKey}-${timestamp}.log`;
+    const archivePath = this.pathModule.join(process.cwd(), this.config.archiveDirectory, archivedName);
+    
     try {
+      this.fsModule.renameSync(filePath, archivePath);
+      
       if (this.config.compressArchive) {
-        await this.compressFile(filePath, archivePath + '.gz');
-      } else {
-        renameSync(filePath, archivePath);
+        const compressedPath = `${archivePath}.gz`;
+        await this.compressFile(archivePath, compressedPath);
+        this.fsModule.unlinkSync(archivePath);
       }
+      
+      this.cleanOldArchives();
     } catch (error) {
-      console.error(`[LOGGER] Failed to rotate ${filePath}:`, error);
+      // Silent fail for rotation errors
     }
   }
 
   private async compressFile(sourcePath: string, targetPath: string): Promise<void> {
-    const { createReadStream, createWriteStream } = await import('fs');
+    if (this.isBrowser || !this.zlibModule) return;
+    
+    const { createGzip } = this.zlibModule;
+    const { createReadStream, createWriteStream } = this.fsModule;
     
     return new Promise((resolve, reject) => {
       const gzip = createGzip();
       const source = createReadStream(sourcePath);
       const target = createWriteStream(targetPath);
-
+      
       source.pipe(gzip).pipe(target);
-
-      target.on('finish', () => {
-        unlinkSync(sourcePath);
-        resolve();
-      });
-
+      
+      target.on('finish', resolve);
       target.on('error', reject);
     });
   }
 
-  private async cleanupOldFiles(fileKey: string): Promise<void> {
-    const logDir = join(process.cwd(), this.config.logDirectory);
-    const files = readdirSync(logDir)
-      .filter(f => f.startsWith(fileKey + '-') && f.endsWith('.log'))
-      .map(f => ({
-        name: f,
-        path: join(logDir, f),
-        time: statSync(join(logDir, f)).mtime.getTime()
-      }))
-      .sort((a, b) => b.time - a.time);
+  private cleanOldArchives(): void {
+    if (this.isBrowser || !this.fsModule) return;
+    
+    const archiveDir = this.pathModule.join(process.cwd(), this.config.archiveDirectory);
+    if (!this.fsModule.existsSync(archiveDir)) return;
 
-    if (files.length > this.config.maxFiles) {
-      const toArchive = files.slice(this.config.maxFiles);
-      for (const file of toArchive) {
-        try {
-          const archivePath = join(process.cwd(), this.config.archiveDirectory, file.name);
-          if (this.config.compressArchive) {
-            await this.compressFile(file.path, archivePath + '.gz');
-          } else {
-            renameSync(file.path, archivePath);
-          }
-        } catch (error) {
-          console.error(`[LOGGER] Failed to archive ${file.name}:`, error);
+    const now = Date.now();
+    const retentionMs = this.config.archiveRetentionDays * 24 * 60 * 60 * 1000;
+
+    const files = this.fsModule.readdirSync(archiveDir);
+    for (const file of files) {
+      const filePath = this.pathModule.join(archiveDir, file);
+      try {
+        const stats = this.fsModule.statSync(filePath);
+        if (now - stats.mtime.getTime() > retentionMs) {
+          this.fsModule.unlinkSync(filePath);
         }
+      } catch (error) {
+        // Silent fail for cleanup errors
       }
     }
   }
 
   private scheduleArchiveCleanup(): void {
+    if (this.isBrowser) return;
+    
     const cleanup = () => {
-      const archiveDir = join(process.cwd(), this.config.archiveDirectory);
-      if (!existsSync(archiveDir)) return;
-
-      const now = Date.now();
-      const retentionMs = this.config.archiveRetentionDays * 24 * 60 * 60 * 1000;
-
-      const files = readdirSync(archiveDir);
-      for (const file of files) {
-        const filePath = join(archiveDir, file);
-        try {
-          const stats = statSync(filePath);
-          if (now - stats.mtime.getTime() > retentionMs) {
-            unlinkSync(filePath);
-            console.log(`[LOGGER] Deleted old archive: ${file}`);
-          }
-        } catch (error) {
-          console.error(`[LOGGER] Failed to check/delete ${file}:`, error);
-        }
-      }
+      this.cleanOldArchives();
     };
 
     cleanup();
-    setInterval(cleanup, 24 * 60 * 60 * 1000);
+    if (typeof setInterval !== 'undefined') {
+      setInterval(cleanup, 24 * 60 * 60 * 1000);
+    }
   }
 
   private writeToFile(fileKey: string, entry: LogEntry): void {
-    if (!this.config.enableFileLogging) return;
+    if (this.isBrowser || !this.config.enableFileLogging || !this.fsModule) return;
 
     const fileConfig = this.config.files[fileKey];
     if (!fileConfig || !fileConfig.enabled) return;
@@ -311,7 +346,7 @@ class Logger {
 
     const filePath = this.getLogFilePath(fileKey);
     
-    this.checkFileRotation(filePath, fileKey).catch(console.error);
+    this.checkFileRotation(filePath, fileKey).catch(() => {});
 
     const timestamp = this.formatTimestamp(entry.timestamp);
     const levelStr = entry.level.toUpperCase().padEnd(5);
@@ -320,9 +355,9 @@ class Logger {
     const logLine = `[${timestamp}] [${levelStr}] ${entry.message}${contextStr}\n`;
 
     try {
-      appendFileSync(filePath, logLine, 'utf-8');
+      this.fsModule.appendFileSync(filePath, logLine, 'utf-8');
     } catch (error) {
-      console.error(`[LOGGER] Failed to write to ${fileKey}:`, error);
+      // Silent fail for file write errors
     }
   }
 
@@ -350,34 +385,26 @@ class Logger {
       case 'debug':
         console.debug(output);
         break;
+      default:
+        console.log(output);
     }
   }
 
   private log(level: LogLevel, message: string, context?: Record<string, any>): void {
     const entry: LogEntry = {
       level,
-      tag: this.extractTag(message),
+      tag: this.getTagFromMessage(message),
       message,
       context,
       timestamp: new Date()
     };
 
-    // Only write to file if file logging is enabled
-    if (this.config.enableFileLogging) {
-      const targetFile = this.config.tagToFile[entry.tag] || 'app';
-
-      this.writeToFile(targetFile, entry);
-
-      if (this.config.files.app?.includeAll && targetFile !== 'app') {
-        this.writeToFile('app', entry);
-      }
-
-      if (level === 'error' && targetFile !== 'error') {
-        this.writeToFile('error', entry);
-      }
-    }
-
     this.writeToConsole(entry);
+    
+    if (!this.isBrowser) {
+      const fileKey = this.config.tagToFile[entry.tag] || 'app';
+      this.writeToFile(fileKey, entry);
+    }
   }
 
   error(message: string, context?: Record<string, any>): void {
@@ -396,44 +423,13 @@ class Logger {
     this.log('debug', message, context);
   }
 
-  logCollectionSummary(params: {
-    mode: string;
-    query: string;
-    totalFound: number;
-    duplicates: number;
-    saved: number;
-    duration: number;
-    optimizedQuery?: string;
-  }): void {
-    const { mode, query, totalFound, duplicates, saved, duration, optimizedQuery } = params;
-    
-    const summary = `
-================================================================================
-[LOG] COLLECTION SUMMARY
-================================================================================
-  Mode:           ${mode}
-  Query:          ${query}
-  Found:          ${totalFound} papers
-  Duplicates:     ${duplicates} papers
-  Saved:          ${saved} papers
-  Duration:       ${(duration / 1000).toFixed(2)}s
-  Optimized:      ${optimizedQuery ? optimizedQuery.substring(0, 60) + '...' : 'N/A'}
-================================================================================
-`;
-    console.log(summary);
-    
-    this.info('[COLLECTION] Summary', {
-      mode,
-      query,
-      totalFound,
-      duplicates,
-      saved,
-      duration: `${(duration / 1000).toFixed(2)}s`,
-      optimizedQuery: optimizedQuery?.substring(0, 100)
-    });
+  // Tagged logging methods
+  tagged(tag: string, level: LogLevel, message: string, context?: Record<string, any>): void {
+    this.log(level, `[${tag}] ${message}`, context);
   }
 
-  logPaperDetails(params: {
+  // Specialized logging methods for collection service
+  logPaperDetails(details: {
     title: string;
     relevanceScore: number;
     technicalScore: number;
@@ -443,131 +439,39 @@ class Logger {
     tags: string[];
     source: string;
   }): void {
-    const { title, relevanceScore, technicalScore, businessScore, timelinessScore, practicalityScore, tags, source } = params;
-    
-    console.log(`[DETAILS] PAPER SAVED
-  Title:          ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}
-  Source:         ${source}
-  Relevance:      ${relevanceScore.toFixed(1)}/10
-  Technical:      ${technicalScore.toFixed(1)}/10
-  Business:       ${businessScore.toFixed(1)}/10
-  Timeliness:     ${timelinessScore.toFixed(1)}/10
-  Practicality:   ${practicalityScore.toFixed(1)}/10
-  Tags:           [${tags.join(', ')}]
-`);
-
-    this.info('[COLLECTION] Paper saved', {
-      title: title.substring(0, 80),
-      source,
-      scores: {
-        relevance: relevanceScore.toFixed(2),
-        technical: technicalScore,
-        business: businessScore,
-        timeliness: timelinessScore,
-        practicality: practicalityScore
-      },
-      tags
-    });
+    this.info('[COLLECTION] Paper details', details);
   }
 
-  logAPIRequest(params: {
-    method: string;
-    path: string;
-    ip?: string;
-    userAgent?: string;
-  }): void {
-    this.info('[API] Request', {
-      method: params.method,
-      path: params.path,
-      ip: params.ip || 'unknown',
-      userAgent: params.userAgent?.substring(0, 50)
-    });
-  }
-
-  logAPIResponse(params: {
-    method: string;
-    path: string;
-    status: number;
+  logCollectionSummary(summary: {
+    mode: string;
+    query: string;
+    totalFound: number;
+    duplicates: number;
+    filtered?: number;
+    saved: number;
     duration: number;
+    optimizedQuery?: string;
   }): void {
-    this.info('[API] Response', {
-      method: params.method,
-      path: params.path,
-      status: params.status,
-      duration: `${params.duration}ms`
-    });
+    this.info('[COLLECTION] Collection summary', summary);
   }
 
-  logLLMCall(params: {
-    provider: string;
-    model: string;
-    operation: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    duration: number;
-    success: boolean;
-    error?: string;
-  }): void {
-    if (params.success) {
-      this.debug('[LLM] API call', {
-        provider: params.provider,
-        model: params.model,
-        operation: params.operation,
-        tokens: params.inputTokens && params.outputTokens 
-          ? { input: params.inputTokens, output: params.outputTokens }
-          : undefined,
-        duration: `${params.duration}ms`
-      });
-    } else {
-      this.warn('[LLM] API call failed', {
-        provider: params.provider,
-        model: params.model,
-        operation: params.operation,
-        error: params.error,
-        duration: `${params.duration}ms`
-      });
-    }
+  // Configuration methods
+  setLevel(level: LogLevel): void {
+    this.config.globalLevel = level;
   }
 
-  logConfigChange(params: {
-    component: string;
-    action: 'create' | 'update' | 'delete';
-    details: Record<string, any>;
-    user?: string;
-  }): void {
-    this.info('[CONFIG] Change', {
-      component: params.component,
-      action: params.action,
-      user: params.user || 'system',
-      details: params.details
-    });
+  enableFileLogging(enabled: boolean): void {
+    this.config.enableFileLogging = enabled;
   }
 
-  logAuth(params: {
-    action: 'login' | 'logout' | 'session_expired' | 'login_failed';
-    user?: string;
-    ip?: string;
-    reason?: string;
-  }): void {
-    if (params.action === 'login_failed') {
-      this.warn('[AUTH] Login failed', {
-        user: params.user,
-        ip: params.ip,
-        reason: params.reason
-      });
-    } else {
-      this.info('[AUTH] ' + params.action, {
-        user: params.user,
-        ip: params.ip
-      });
-    }
-  }
-
-  reloadConfig(): void {
-    this.config = this.loadConfig();
-    this.info('[LOGGER] Config reloaded');
+  enableConsoleLogging(enabled: boolean): void {
+    this.config.enableConsoleLogging = enabled;
   }
 }
 
-export const logger = new Logger();
+// Create singleton instance
+const logger = new Logger();
+
+export { logger };
+export type { LogLevel };
 export default logger;
