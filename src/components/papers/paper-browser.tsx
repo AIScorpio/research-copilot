@@ -39,7 +39,7 @@ interface PaperListProps {
 }
 
 export function PaperBrowser({ papers, availableTags }: PaperListProps) {
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
