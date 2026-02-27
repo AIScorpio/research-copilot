@@ -358,16 +358,19 @@ class Logger {
       timestamp: new Date()
     };
 
-    const targetFile = this.config.tagToFile[entry.tag] || 'app';
+    // Only write to file if file logging is enabled
+    if (this.config.enableFileLogging) {
+      const targetFile = this.config.tagToFile[entry.tag] || 'app';
 
-    this.writeToFile(targetFile, entry);
+      this.writeToFile(targetFile, entry);
 
-    if (this.config.files.app?.includeAll && targetFile !== 'app') {
-      this.writeToFile('app', entry);
-    }
+      if (this.config.files.app?.includeAll && targetFile !== 'app') {
+        this.writeToFile('app', entry);
+      }
 
-    if (level === 'error' && targetFile !== 'error') {
-      this.writeToFile('error', entry);
+      if (level === 'error' && targetFile !== 'error') {
+        this.writeToFile('error', entry);
+      }
     }
 
     this.writeToConsole(entry);
