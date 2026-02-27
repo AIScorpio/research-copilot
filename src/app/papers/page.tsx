@@ -85,6 +85,11 @@ export default async function PapersPage({
     });
 
     const tags = await prisma.tag.findMany({
+        where: {
+            papers: {
+                some: {} // Only tags with at least one paper
+            }
+        },
         orderBy: { name: 'asc' }
     });
 
