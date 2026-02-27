@@ -107,7 +107,7 @@ export default async function DashboardPage() {
         <div>
           <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Zap className="h-5 w-5 text-purple-600" />
-            New Features Available
+            New Features in Roadmap
           </h3>
           <FeatureCards />
         </div>
