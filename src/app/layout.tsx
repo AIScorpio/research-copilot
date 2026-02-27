@@ -6,6 +6,7 @@ import { ToastProvider, ToastContainer } from "@/components/ui/toast";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Sidebar } from "@/components/layout/sidebar";
 import { LLMInitializer } from "@/components/llm-initializer";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -47,6 +48,7 @@ export default function RootLayout({
             </ToastProvider>
           </ErrorBoundary>
         </ThemeProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
