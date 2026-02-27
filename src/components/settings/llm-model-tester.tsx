@@ -1,5 +1,7 @@
 "use client";
 
+import { logger } from "@/lib/logger";
+
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -117,7 +119,7 @@ export function LLMModelTester() {
             }
         } catch (err) {
             setError('Failed to load models');
-            console.error(err);
+            logger.error("Test failed", { error: err instanceof Error ? err.message : String(err) });
         } finally {
             setIsLoading(false);
         }
@@ -217,7 +219,7 @@ export function LLMModelTester() {
                 // User cancelled - already handled
             } else {
                 setError('Failed to run tests');
-                console.error(err);
+                logger.error("Test failed", { error: err instanceof Error ? err.message : String(err) });
             }
         } finally {
             setIsTesting(false);

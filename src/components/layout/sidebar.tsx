@@ -1,5 +1,7 @@
 "use client";
 
+import { logger } from "@/lib/logger";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Library, Star, Settings, PlayCircle, Bot, Play, Menu, BookOpen, Download, Sparkles, Radar, Info, TrendingUp, LineChart, Bell, LogOut } from "lucide-react";
@@ -27,7 +29,7 @@ export function Sidebar({ className }: SidebarProps) {
             .then(data => {
                 setUser(data.user || null);
             })
-            .catch(console.error);
+            .catch((err) => logger.error('Logout failed', { error: err instanceof Error ? err.message : String(err) }));
     };
 
     useEffect(() => {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { logger } from "@/lib/logger"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,7 @@ export default function NotificationSettings() {
                 setError(data.error);
             }
         } catch (err) {
-            console.error("Failed to load settings", err);
+            logger.error("Failed to load settings", { error: err instanceof Error ? err.message : String(err) });
             setError("Could not connect to the server.");
         } finally {
             setLoading(false);
@@ -61,7 +62,7 @@ export default function NotificationSettings() {
         } catch (err) {
             setSettings(prevSettings);
             setError(err instanceof Error ? err.message : 'Failed to save');
-            console.error(err);
+            logger.error('Failed to save notification settings', { error: err instanceof Error ? err.message : String(err) });
         }
     }
 
@@ -89,7 +90,7 @@ export default function NotificationSettings() {
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to add email');
-            console.error(err);
+            logger.error('Failed to add email', { error: err instanceof Error ? err.message : String(err) });
         } finally {
             setSaving(false);
         }
@@ -111,7 +112,7 @@ export default function NotificationSettings() {
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to remove email');
-            console.error(err);
+            logger.error('Failed to remove email', { error: err instanceof Error ? err.message : String(err) });
         }
     }
 

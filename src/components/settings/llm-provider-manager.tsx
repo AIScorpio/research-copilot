@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
@@ -67,7 +68,7 @@ export function LLMProviderManager() {
                         }));
                     }
                 } catch (error) {
-                    console.error('Failed to fetch Ollama models:', error);
+                    logger.error('Failed to fetch Ollama models:', { error: error instanceof Error ? error.message : String(error) });
                 }
             }
         };
@@ -95,7 +96,7 @@ export function LLMProviderManager() {
                         }));
                     }
                 } catch (error) {
-                    console.error('Failed to fetch Groq models:', error);
+                    logger.error('Failed to fetch Groq models:', { error: error instanceof Error ? error.message : String(error) });
                 }
             }
         };

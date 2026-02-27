@@ -1,5 +1,7 @@
 "use client";
 
+import { logger } from "@/lib/logger";
+
 import { Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useCallback, useEffect, useState } from "react";
@@ -21,7 +23,7 @@ export function AlertBadge({ className: _className }: AlertBadgeProps) {
         setUnreadCount(data.total || 0);
       }
     } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+      logger.error('Failed to fetch unread count:', { error: error instanceof Error ? error.message : String(error) });
     }
   }, []);
 

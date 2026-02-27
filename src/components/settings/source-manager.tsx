@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { logger } from "@/lib/logger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -72,7 +73,7 @@ export default function SourceManager() {
                 setDbSources(await sourcesRes.json());
             }
         } catch (error) {
-            console.error('Failed to load source data:', error);
+            logger.error('Failed to load source data:', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 
@@ -93,7 +94,7 @@ export default function SourceManager() {
             });
             loadData();
         } catch (error) {
-            console.error('Failed to toggle source:', error);
+            logger.error('Failed to toggle source:', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 
@@ -116,7 +117,7 @@ export default function SourceManager() {
             setAddingToType(null);
             loadData();
         } catch (error) {
-            console.error('Failed to add source:', error);
+            logger.error('Failed to add source:', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 
@@ -137,7 +138,7 @@ export default function SourceManager() {
             setEditForm({ displayName: '', url: '' });
             loadData();
         } catch (error) {
-            console.error('Failed to update source:', error);
+            logger.error('Failed to update source:', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 
@@ -150,7 +151,7 @@ export default function SourceManager() {
             });
             loadData();
         } catch (error) {
-            console.error('Failed to delete source:', error);
+            logger.error('Failed to delete source:', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 

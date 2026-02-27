@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { logger } from '@/lib/logger';
 
 const PROMPTS_PATH = join(process.cwd(), 'config', 'prompts.json');
 
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
             message: 'Prompt templates saved successfully' 
         });
     } catch (error) {
-        console.error('Failed to save prompts:', error);
+        logger.error('Failed to save prompts:', { error: error instanceof Error ? error.message : String(error) });
         return NextResponse.json(
             { success: false, message: 'Failed to save prompt templates' },
             { status: 500 }
@@ -50,7 +51,7 @@ export async function GET() {
         
         return NextResponse.json({ success: true, prompts });
     } catch (error) {
-        console.error('Failed to load prompts:', error);
+        logger.error('Failed to load prompts:', { error: error instanceof Error ? error.message : String(error) });
         return NextResponse.json(
             { success: false, message: 'Failed to load prompt templates' },
             { status: 500 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { logger } from "@/lib/logger";
+
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +69,7 @@ export function AlertList() {
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
-        console.error('Failed to fetch alerts:', error);
+        logger.error('Failed to fetch alerts:', { error: error instanceof Error ? error.message : String(error) });
       }
     } finally {
       setLoading(false);
@@ -88,7 +90,7 @@ export function AlertList() {
         ));
       }
     } catch (error) {
-      console.error('Failed to mark alert as read:', error);
+      logger.error('Failed to mark alert as read:', { error: error instanceof Error ? error.message : String(error) });
     }
   }, [alerts]);
 
@@ -104,7 +106,7 @@ export function AlertList() {
         setAlerts(alerts.filter(alert => alert.id !== id));
       }
     } catch (error) {
-      console.error('Failed to dismiss alert:', error);
+      logger.error('Failed to dismiss alert:', { error: error instanceof Error ? error.message : String(error) });
     }
   }, []);
 

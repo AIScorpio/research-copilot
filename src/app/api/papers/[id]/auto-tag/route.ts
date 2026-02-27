@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateTagsWithLLM } from '@/lib/tag-generator';
 import { handleError, createNotFoundError } from '@/lib/error-handler';
+import { logger } from '@/lib/logger';
 
 export async function POST(
     request: Request,
@@ -31,7 +32,7 @@ export async function POST(
             .filter(t => !existingNamesSet.has(t.name.toLowerCase()))
             .map(t => ({ name: t.name, category: t.category }));
 
-        console.log('[Auto-Tag] Final suggestions:', newSuggestions);
+        logger.debug('[Auto-Tag] Final suggestions:', { suggestions: newSuggestions });
 
         return NextResponse.json({ candidates: newSuggestions });
 

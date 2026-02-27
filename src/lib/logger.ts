@@ -328,7 +328,7 @@ class Logger {
 
   private writeToConsole(entry: LogEntry): void {
     if (!this.config.enableConsoleLogging) return;
-    if (this.isDevelopment === false) return;
+    // Console logging enabled for all environments (including Vercel)
     if (!this.shouldLog(entry.level, this.config.globalLevel)) return;
 
     const timestamp = this.formatTimestamp(entry.timestamp);

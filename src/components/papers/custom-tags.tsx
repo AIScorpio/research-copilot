@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/logger"
+
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,7 +50,7 @@ export function CustomTags({ paperId, initialTags }: { paperId: string, initialT
                 setSuggestions(prev => prev.filter(s => s.name !== tagName));
             }
         } catch (e) {
-            console.error(e);
+            logger.error("Tag operation failed", { error: e instanceof Error ? e.message : String(e) });
         }
     };
 
@@ -62,7 +64,7 @@ export function CustomTags({ paperId, initialTags }: { paperId: string, initialT
                 setSuggestions(data.candidates);
             }
         } catch (e) {
-            console.error(e);
+            logger.error("Tag operation failed", { error: e instanceof Error ? e.message : String(e) });
         } finally {
             setIsAutoTagging(false);
         }

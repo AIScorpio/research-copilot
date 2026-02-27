@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { handleError, createUnauthorizedError, createValidationError } from '@/lib/error-handler';
+import { logger } from '@/lib/logger';
 
 async function getAuthUser() {
     try {
@@ -12,13 +13,13 @@ async function getAuthUser() {
         if (!userId) {
             const firstUser = await prisma.user.findFirst();
             if (firstUser) {
-                console.log(`[Auth] No session cookie found. Falling back to primary user: ${firstUser.email}`);
+                logger.debug(`[Auth] No session cookie found. Falling back to primary user: ${firstUser.email}`);
                 return firstUser.id;
             }
         }
         return userId || null;
     } catch (error) {
-        console.error('[Auth] Error getting session:', error);
+        logger.error('[Auth] Error getting session:', { error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 }
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { emailAlerts, newsletterAlerts, action, email } = body;
 
-        console.log(`[API/Notifications] Action: ${action}`, { emailAlerts, newsletterAlerts, email });
+        logger.debug(`[API/Notifications] Action: ${action}`, { emailAlerts, newsletterAlerts, email });
 
         if (action === 'toggle') {
             const updateData: any = {};
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
                 where: { id: userId },
                 data: updateData
             });
-            console.log('[API/Notifications] User updated successfully');
+            logger.debug('[API/Notifications] User updated successfully');
         }
         else if (action === 'add' && email) {
             if (!email.includes('@')) {
@@ -105,13 +106,13 @@ export async function POST(request: Request) {
                     email: email.trim().toLowerCase()
                 }
             });
-            console.log('[API/Notifications] Subscriber added/upserted');
+            logger.debug('[API/Notifications] Subscriber added/upserted');
         }
         else if (action === 'remove' && email) {
             await prisma.notificationSubscriber.deleteMany({
                 where: { userId, email }
             });
-            console.log('[API/Notifications] Subscriber removed');
+            logger.debug('[API/Notifications] Subscriber removed');
         }
 
         // Fetch fresh state to return

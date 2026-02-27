@@ -31,7 +31,7 @@ function loadLastTestResults(): { timestamp: string; results: TestResult[] } | n
             return JSON.parse(content);
         }
     } catch (error) {
-        console.error('Failed to load last test results:', error);
+        logger.error('Failed to load last test results:', { error: error instanceof Error ? error.message : String(error) });
     }
     return null;
 }

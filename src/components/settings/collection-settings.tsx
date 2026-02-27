@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,7 +54,7 @@ export default function CollectionSettings() {
                 });
             }
         } catch (error) {
-            console.error('Failed to load collection config:', error);
+            logger.error('Failed to load collection config:', { error: error instanceof Error ? error.message : String(error) });
         } finally {
             setIsLoading(false);
         }

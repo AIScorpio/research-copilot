@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/logger"
+
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -78,7 +80,7 @@ export function PaperCard({ paper }: { paper: Paper }) {
                 alert("Failed to delete paper.");
             }
         } catch (e) {
-            console.error(e);
+            logger.error("Operation failed", { error: e instanceof Error ? e.message : String(e) });
             alert("Network error.");
         }
     }
@@ -98,7 +100,7 @@ export function PaperCard({ paper }: { paper: Paper }) {
                 alert("Failed to update date.");
             }
         } catch (e) {
-            console.error(e);
+            logger.error("Operation failed", { error: e instanceof Error ? e.message : String(e) });
             alert("Error updating date.");
         } finally {
             setIsSavingDate(false);
@@ -162,7 +164,7 @@ export function PaperCard({ paper }: { paper: Paper }) {
                 setSuggestions(data.candidates);
             }
         } catch (e) {
-            console.error(e);
+            logger.error("Operation failed", { error: e instanceof Error ? e.message : String(e) });
         } finally {
             setIsAutoTagging(false);
         }

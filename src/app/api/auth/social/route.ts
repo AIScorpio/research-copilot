@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { initSocialSource, completeOAuth, getSocialCredentials } from '@/lib/social-collector';
 import { handleError, createValidationError } from '@/lib/error-handler';
+import { logger } from '@/lib/logger';
 
 const InitAuthSchema = z.object({
     platform: z.enum(['reddit', 'linkedin', 'twitter', 'mastodon']),
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { platform, sourceId, authConfig } = InitAuthSchema.parse(body);
 
-        console.log(`[Auth] Initializing ${platform} OAuth`);
+        logger.debug(`[Auth] Initializing ${platform} OAuth`);
 
         // Initialize the OAuth flow
         const result = await initSocialSource(sourceId, platform, authConfig || {
@@ -59,7 +60,7 @@ export async function PUT(request: Request) {
         const body = await request.json();
         const { platform, code, state } = CompleteAuthSchema.parse(body);
 
-        console.log(`[Auth] Completing ${platform} OAuth`);
+        logger.debug(`[Auth] Completing ${platform} OAuth`);
 
         // Complete the OAuth flow and store credentials
         await completeOAuth(platform, code, state);
@@ -128,7 +129,7 @@ export async function DELETE(request: Request) {
             },
         });
 
-        console.log(`[Auth] Removed credentials for ${platform}`);
+        logger.debug(`[Auth] Removed credentials for ${platform}`);
 
         return NextResponse.json({
             success: true,

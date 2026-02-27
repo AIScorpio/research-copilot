@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/logger"
+
 import { useState, useEffect } from "react"
 import { BookOpen, Calendar, ChevronRight, Share2, Printer, Loader2, Link as LinkIcon, FileText, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -25,7 +27,7 @@ export default function ArchivesPage() {
                 setLoading(false)
             })
             .catch(err => {
-                console.error(err)
+                logger.error("Failed to load archives", { error: err instanceof Error ? err.message : String(err) })
                 setError("Failed to load research archives. Please try again later.")
                 setLoading(false)
             })
