@@ -9,14 +9,14 @@ export default async function PapersPage({
     searchParams?: Promise<{
         search?: string
         category?: string
-        topic?: string
+        tag?: string
         sort?: string
     }>
 }) {
     const resolvedParams = await searchParams;
     const search = resolvedParams?.search || "";
     const category = resolvedParams?.category;
-    const topic = resolvedParams?.topic;
+    const tag = resolvedParams?.tag;
     const sort = resolvedParams?.sort || "newest";
 
     const whereClause: any = {};
@@ -28,17 +28,32 @@ export default async function PapersPage({
         ];
     }
 
-    // Tags filter
-    if (category || topic) {
-        whereClause.tags = {
-            some: {
-                tag: {
-                    OR: []
+    // Tags filter with AND logic (intersection)
+    // Papers must have BOTH the category filter AND the specific tag
+    const tagConditions: any[] = [];
+    
+    if (category) {
+        tagConditions.push({
+            tags: {
+                some: {
+                    tag: { category: category }
                 }
             }
-        }
-        if (category) whereClause.tags.some.tag.OR.push({ category: category });
-        if (topic) whereClause.tags.some.tag.OR.push({ name: topic });
+        });
+    }
+    
+    if (tag) {
+        tagConditions.push({
+            tags: {
+                some: {
+                    tag: { name: tag }
+                }
+            }
+        });
+    }
+    
+    if (tagConditions.length > 0) {
+        whereClause.AND = tagConditions;
     }
 
     const papers = await prisma.paper.findMany({

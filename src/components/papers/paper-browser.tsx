@@ -45,7 +45,7 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
     const searchParams = useSearchParams()
 
     const currentCategory = searchParams.get('category')
-    const currentTopic = searchParams.get('topic')
+    const currentTag = searchParams.get('tag')
     const currentSearch = searchParams.get('search')
 
     const categoryLabels: Record<string, string> = {
@@ -65,9 +65,9 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
     const handleTagChange = (value: string) => {
         const params = new URLSearchParams(searchParams);
         if (value === 'all') {
-            params.delete('topic'); // Unified to 'topic' parameter for simplicity
+            params.delete('tag');
         } else {
-            params.set('topic', value);
+            params.set('tag', value);
         }
         router.replace(`${pathname}?${params.toString()}`);
     }
@@ -129,7 +129,7 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
                 </div>
 
                 {/* Active Filters Display */}
-                {(currentCategory || currentTopic || currentSearch) && (
+                {(currentCategory || currentTag || currentSearch) && (
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm text-muted-foreground">Active filters:</span>
                         {currentCategory && (
@@ -137,9 +137,9 @@ export function PaperBrowser({ papers, availableTags }: PaperListProps) {
                                 Category: {categoryLabels[currentCategory] || currentCategory}
                             </span>
                         )}
-                        {currentTopic && (
+                        {currentTag && (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
-                                Topic: {currentTopic}
+                                Tag: {currentTag}
                             </span>
                         )}
                         {currentSearch && (
