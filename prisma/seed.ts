@@ -5,7 +5,11 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('🌱 Seeding academic collection sources...');
 
-    // Academic Research Sources
+    // STEP 1: Delete all existing sources to start fresh
+    const deleted = await prisma.source.deleteMany({});
+    console.log(`  🗑️  Deleted ${deleted.count} existing sources`);
+
+    // STEP 2: Academic Research Sources (only these 5)
     const academicSources = [
         { name: 'arxiv', url: 'https://export.arxiv.org/api/query', type: 'academic' },
         { name: 'semantic-scholar', url: 'https://api.semanticscholar.org/graph/v1', type: 'academic' },
@@ -14,17 +18,15 @@ async function main() {
         { name: 'acm', url: 'https://api.semanticscholar.org/graph/v1', type: 'academic' },
     ];
 
-    // Insert academic sources
+    // STEP 3: Insert only academic sources
     for (const source of academicSources) {
-        await prisma.source.upsert({
-            where: { name: source.name },
-            update: {},
-            create: source,
+        await prisma.source.create({
+            data: source,
         });
         console.log(`  ✓ Added academic source: ${source.name}`);
     }
 
-    console.log('\n✅ Seeding complete!');
+    console.log('\n✅ Seeding complete! Total sources: 5');
 }
 
 main()
