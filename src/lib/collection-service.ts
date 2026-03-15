@@ -104,11 +104,17 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
     // in the app entry point. No need to initialize here.
 
     // Merge options: BASE_CONFIG -> MODE_DEFAULTS -> user options
-    // This ensures manual mode inherits auto mode base conditions
+    // Filter out undefined values so they don't overwrite defaults (except mode which is required)
+    const { mode, ...restOptions } = options;
+    const userOptions = Object.fromEntries(
+        Object.entries(restOptions).filter(([_, v]) => v !== undefined)
+    );
+    
     const opts = {
         ...BASE_CONFIG,
-        ...MODE_DEFAULTS[options.mode],
-        ...options
+        ...MODE_DEFAULTS[mode],
+        ...userOptions,
+        mode
     };
     
     logger.info(`Collection started`, {
