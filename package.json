@@ -5,7 +5,7 @@
   "author": "AIScorpio",
   "description": "Applied AI Research Intelligence Platform for Banking & Finance",
   "scripts": {
-    "dev": "node scripts/switch-db.js && prisma generate && next dev",
+    "dev": "NODE_NO_WARNINGS=1 node scripts/switch-db.js && prisma generate && next dev",
     "build": "node scripts/switch-db.js && prisma generate && prisma db push --accept-data-loss && next build",
     "start": "next start",
     "lint": "eslint",

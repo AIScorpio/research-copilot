@@ -29,7 +29,6 @@ export interface ContentFilterOptions {
     requireBankingContext?: boolean;
     requireAITechnology?: boolean;
     focusAreas?: string[];
-    excludeCategories?: string[];
     useConfigPrompt?: boolean;
 }
 
@@ -47,7 +46,6 @@ const DEFAULT_FILTER_OPTIONS: ContentFilterOptions = {
         'regulatory-reporting',
         'process-automation'
     ],
-    excludeCategories: ['cryptocurrency', 'blockchain-hype', 'non-financial'],
     useConfigPrompt: true
 };
 
@@ -304,30 +302,6 @@ function performQuickCheck(
     content: string,
     options: ContentFilterOptions
 ): { shouldSkip: boolean; result: ContentRelevanceResult } {
-    // Check for excluded categories
-    if (options.excludeCategories) {
-        for (const category of options.excludeCategories) {
-            if (content.includes(category.toLowerCase())) {
-                return {
-                        shouldSkip: true,
-                        result: {
-                            isRelevant: false,
-                            relevanceScore: 1,
-                            confidence: 0.9,
-                            reasoning: `Content matches excluded category: ${category}`,
-                            matchedCategories: [],
-                            dimensionScores: {
-                                technical: 1,
-                                business: 1,
-                                timeliness: 1,
-                                practicality: 1
-                            }
-                        }
-                    };
-            }
-        }
-    }
-    
     // Check banking context requirement
     if (options.requireBankingContext) {
         const hasBankingKeyword = BANKING_KEYWORDS.some(kw => content.includes(kw));

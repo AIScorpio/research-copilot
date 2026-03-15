@@ -75,18 +75,17 @@ const BASE_CONFIG: Partial<CollectionOptions> = {
 };
 
 // Mode-specific configurations (inherit from BASE_CONFIG)
+// maxResults will be loaded from config/collection.json in runCollection
 const MODE_DEFAULTS: Record<CollectionMode, Partial<CollectionOptions>> = {
     auto: {
         ...BASE_CONFIG,
         horizon: 'month',
-        maxResults: 100, // Soft limit: 100 papers
         minRelevanceScore: 5, // 1-10 scale: 5 is minimum for "partially relevant"
         focusAreas: ['risk-management', 'compliance', 'fraud-detection', 'credit-assessment']
     },
     pipeline: {
         ...BASE_CONFIG,
         horizon: 'year',
-        maxResults: 200,
         minRelevanceScore: 5, // 1-10 scale
         focusAreas: ['risk-management', 'compliance', 'fraud-detection', 'credit-assessment', 'model-governance']
     }
@@ -103,6 +102,9 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
     // Note: LLM providers are now initialized globally via initializeLLMSystem()
     // in the app entry point. No need to initialize here.
 
+    // Load collection config for maxResults
+    const config = await loadCollectionConfig();
+    
     // Merge options: BASE_CONFIG -> MODE_DEFAULTS -> user options
     // Filter out undefined values so they don't overwrite defaults (except mode which is required)
     const { mode, ...restOptions } = options;
@@ -113,6 +115,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
     const opts = {
         ...BASE_CONFIG,
         ...MODE_DEFAULTS[mode],
+        maxResults: config.maxResults, // Use config value instead of hardcoded
         ...userOptions,
         mode
     };

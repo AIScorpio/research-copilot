@@ -8,7 +8,7 @@ import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/session';
 import { handleError, createValidationError } from '@/lib/error-handler';
 import { logger } from '@/lib/logger';
-import { LLMProviderFactory } from '@/lib/llm-service';
+import { LLMProviderFactory, reinitializeLLMFromDatabase } from '@/lib/llm-service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { fetchAvailableModels, LLMModelInfo } from '@/lib/llm-model-fetcher';
@@ -518,6 +518,9 @@ export async function PATCH(request: Request) {
                     },
                     data: { isDefault: false }
                 });
+
+                // Reinitialize LLM providers to pick up the new model
+                await reinitializeLLMFromDatabase('system');
 
                 return NextResponse.json({
                     success: true,
