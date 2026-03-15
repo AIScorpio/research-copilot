@@ -1,7 +1,7 @@
 /**
  * Hybrid Logger - Console + File (local only)
  * Works on both Vercel (console-only) and local (console + files)
- * Uses lazy imports to avoid build errors on Vercel
+ * File logging uses eval() to bypass webpack bundling
  */
 
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
@@ -32,43 +32,39 @@ class Logger {
   private config: LogConfig;
   private isDevelopment: boolean;
   private isVercel: boolean;
-  private fsModule: typeof import('fs') | null = null;
-  private pathModule: typeof import('path') | null = null;
+  private isServer: boolean;
 
   constructor() {
-    this.isDevelopment = process.env.NODE_ENV !== 'production';
-    this.isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+    this.isDevelopment = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production';
+    this.isVercel = typeof process !== 'undefined' && (process.env.VERCEL === '1' || process.env.VERCEL === 'true');
+    this.isServer = typeof window === 'undefined';
     
     this.config = {
       globalLevel: 'info',
-      enableFileLogging: !this.isVercel, // Files only for local
-      enableConsoleLogging: true,        // Always
+      enableFileLogging: this.isServer && !this.isVercel,
+      enableConsoleLogging: true,
       logDirectory: 'logs'
     };
     
-    // Initialize file system for local deployment
     if (this.config.enableFileLogging) {
-      this.initializeFileSystem().catch(console.error);
+      this.initFileSystem();
     }
   }
 
-  private async initializeFileSystem(): Promise<void> {
+  private initFileSystem(): void {
     try {
-      // Lazy import - only executed on local
-      this.fsModule = await import('fs');
-      this.pathModule = await import('path');
+      // Use eval to bypass webpack bundling - only executes at runtime
+      const fs = eval('require("fs")');
+      const path = eval('require("path")');
       
-      const { existsSync, mkdirSync } = this.fsModule;
-      const { join } = this.pathModule;
-      const logDir = join(process.cwd(), this.config.logDirectory);
+      const logDir = path.join(process.cwd(), this.config.logDirectory);
       
-      if (!existsSync(logDir)) {
-        mkdirSync(logDir, { recursive: true });
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
       }
       
       console.info(`[LOGGER] File logging enabled at: ${logDir}`);
-    } catch (error) {
-      console.warn('[LOGGER] Failed to initialize file system, using console only:', error);
+    } catch (e) {
       this.config.enableFileLogging = false;
     }
   }
@@ -126,25 +122,25 @@ class Logger {
     return match ? match[1] : 'app';
   }
 
-  private async writeToFile(fileKey: string, entry: LogEntry): Promise<void> {
-    if (!this.config.enableFileLogging || !this.fsModule || !this.pathModule) return;
+  private writeToFile(fileKey: string, entry: LogEntry): void {
+    if (!this.config.enableFileLogging) return;
     
     try {
-      const { appendFileSync, existsSync } = this.fsModule;
-      const { join } = this.pathModule;
+      // Use eval to bypass webpack - only runs on server
+      const fs = eval('require("fs")');
+      const path = eval('require("path")');
       
       const date = new Date().toISOString().split('T')[0];
       const fileName = `${fileKey}-${date}.log`;
-      const filePath = join(process.cwd(), this.config.logDirectory, fileName);
+      const filePath = path.join(process.cwd(), this.config.logDirectory, fileName);
       
       const timestamp = this.formatTimestamp(entry.timestamp);
       const contextStr = this.formatContext(entry.context);
       const logLine = `[${timestamp}] [${entry.level.toUpperCase()}] ${entry.message}${contextStr}\n`;
       
-      appendFileSync(filePath, logLine, 'utf-8');
-    } catch (error) {
-      // Silently fail - console logging still works
-      console.warn(`[LOGGER] File write failed for ${fileKey}:`, error);
+      fs.appendFileSync(filePath, logLine, 'utf-8');
+    } catch (e) {
+      // Fail silently - console still works
     }
   }
 
@@ -185,10 +181,7 @@ class Logger {
       timestamp: new Date()
     };
 
-    // Write to file (async, non-blocking)
-    this.writeToFile(entry.tag.toLowerCase(), entry).catch(() => {});
-    
-    // Always write to console
+    this.writeToFile(entry.tag.toLowerCase(), entry);
     this.writeToConsole(entry);
   }
 
