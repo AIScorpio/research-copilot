@@ -1,7 +1,7 @@
 {
   "autoTimeRangeDays": 7,
   "autoDefaultQuery": "AI in banking",
-  "maxResults": 30,
+  "maxResults": 20,
   "constraints": {
     "maxResultsHardLimit": 100,
     "autoTimeRangeDaysHardLimit": 90

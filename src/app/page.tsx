@@ -104,14 +104,6 @@ export default async function DashboardPage() {
       />
 
       <div className="space-y-6">
-        <div>
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Zap className="h-5 w-5 text-purple-600" />
-            New Features in Roadmap
-          </h3>
-          <FeatureCards />
-        </div>
-
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <div className="col-span-4">
             <TopicChart data={data.techChartData} />
@@ -119,6 +111,14 @@ export default async function DashboardPage() {
           <div className="col-span-3">
             <MethodologyChart data={data.methodChartData} />
           </div>
+        </div>
+
+        <div>
+          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Zap className="h-5 w-5 text-purple-600" />
+            New Features in Roadmap
+          </h3>
+          <FeatureCards />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">

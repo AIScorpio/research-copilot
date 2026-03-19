@@ -135,13 +135,6 @@ export function Sidebar({ className }: SidebarProps) {
             ariaLabel: "Go to technology radar"
         },
         {
-            label: "PoC Recommendations",
-            icon: Sparkles,
-            href: "/recommendations",
-            active: pathname === "/recommendations",
-            ariaLabel: "Go to PoC recommendations"
-        },
-        {
             label: "Export Hub",
             icon: Download,
             href: "/export",
@@ -156,25 +149,11 @@ export function Sidebar({ className }: SidebarProps) {
             ariaLabel: "Go to favorites"
         },
         {
-            label: "Copilot",
-            icon: Bot,
-            href: "/chat",
-            active: pathname === "/chat",
-            ariaLabel: "Go to AI copilot chat"
-        },
-        {
-            label: "Archives",
+            label: "Daily Digest",
             icon: BookOpen,
             href: "/archives",
             active: pathname === "/archives",
-            ariaLabel: "Go to archives"
-        },
-        {
-            label: "Regulatory Alerts",
-            icon: Bell,
-            href: "/alerts",
-            active: pathname === "/alerts",
-            ariaLabel: "Go to regulatory alerts"
+            ariaLabel: "Go to daily digest"
         },
         {
             label: "Settings",
@@ -191,6 +170,13 @@ export function Sidebar({ className }: SidebarProps) {
             ariaLabel: "View about information"
         },
         {
+            label: "__SEPARATOR__",
+            icon: () => null,
+            href: "#",
+            active: false,
+            ariaLabel: "Separator"
+        },
+        {
             label: "Competitive Intel",
             icon: TrendingUp,
             href: "/competitive-intel",
@@ -203,6 +189,27 @@ export function Sidebar({ className }: SidebarProps) {
             href: "/trends",
             active: pathname === "/trends",
             ariaLabel: "Go to research trends"
+        },
+        {
+            label: "PoC Recommendations",
+            icon: Sparkles,
+            href: "/recommendations",
+            active: pathname === "/recommendations",
+            ariaLabel: "Go to PoC recommendations"
+        },
+        {
+            label: "Copilot",
+            icon: Bot,
+            href: "/chat",
+            active: pathname === "/chat",
+            ariaLabel: "Go to AI copilot chat"
+        },
+        {
+            label: "Regulatory Alerts",
+            icon: Bell,
+            href: "/alerts",
+            active: pathname === "/alerts",
+            ariaLabel: "Go to regulatory alerts"
         },
     ];
 
@@ -248,20 +255,24 @@ export function Sidebar({ className }: SidebarProps) {
                     <nav role="navigation" aria-label="Main navigation">
                         <div className="space-y-1 py-4">
                         {routes.map((route) => (
-                            <Link
-                                key={route.href}
-                                href={route.href}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                                    route.active 
-                                        ? "bg-blue-600 text-white hover:bg-blue-700" 
-                                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                                )}
-                                aria-label={route.ariaLabel}
-                            >
-                                <route.icon className="h-4 w-4" />
-                                {route.label}
-                            </Link>
+                            route.label === "__SEPARATOR__" ? (
+                                <div key="separator" className="my-2 border-t border-gray-300 dark:border-gray-600" />
+                            ) : (
+                                <Link
+                                    key={route.href}
+                                    href={route.href}
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                                        route.active 
+                                            ? "bg-blue-600 text-white hover:bg-blue-700" 
+                                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                    )}
+                                    aria-label={route.ariaLabel}
+                                >
+                                    <route.icon className="h-4 w-4" />
+                                    {route.label}
+                                </Link>
+                            )
                         ))}
                         </div>
                     </nav>
@@ -347,17 +358,21 @@ function MobileSidebarContent({ routes, handleAutoCollect, isCollecting }: Mobil
             </div>
             <div className="space-y-1 py-4 px-3 flex-1">
                 {routes.map((route: Route) => (
-                    <Link
-                        key={route.href}
-                        href={route.href}
-                        className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                            route.active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-                        )}
-                    >
-                        <route.icon className="h-4 w-4" />
-                        {route.label}
-                    </Link>
+                    route.label === "__SEPARATOR__" ? (
+                        <div key="separator-mobile" className="my-2 border-t border-gray-300 dark:border-gray-600" />
+                    ) : (
+                        <Link
+                            key={route.href}
+                            href={route.href}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                                route.active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                            )}
+                        >
+                            <route.icon className="h-4 w-4" />
+                            {route.label}
+                        </Link>
+                    )
                 ))}
             </div>
         </div>

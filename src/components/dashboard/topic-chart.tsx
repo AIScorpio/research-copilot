@@ -33,7 +33,7 @@ export function TopicChart({ data }: { data: ChartDataItem[] }) {
 
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    Trending Research Topics
+                    Trending AI-Technologies
                     {activeItem && <span className="text-[10px] bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full animate-pulse">Live View</span>}
                 </CardTitle>
                 <CardDescription>
