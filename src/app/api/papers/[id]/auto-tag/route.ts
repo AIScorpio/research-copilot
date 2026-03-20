@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateTagsWithLLM } from '@/lib/tag-generator';
+import { ensureLLMInitialized } from '@/lib/llm-service';
 import { handleError, createNotFoundError } from '@/lib/error-handler';
 import { logger } from '@/lib/logger';
 
@@ -12,6 +13,9 @@ export async function POST(
     const { id } = params;
 
     try {
+        // Initialize LLM providers from database to ensure correct configuration
+        await ensureLLMInitialized();
+
         const paper = await prisma.paper.findUnique({ where: { id } });
         if (!paper) {
             const error = createNotFoundError('Paper');

@@ -27,7 +27,7 @@ export interface LLMConfig {
 
 // Default configurations for each provider
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
-    groq: 'llama-3.3-70b-versatile',
+    groq: 'moonshotai/kimi-k2-instruct-0905',
     openai: 'gpt-4o-mini',
     anthropic: 'claude-3-haiku-20240307',
     ollama: 'llama3.2',
