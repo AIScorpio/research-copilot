@@ -6,9 +6,8 @@
 import Groq from 'groq-sdk';
 import { logger } from './logger';
 import { 
-    getRateLimiter, 
-    estimateTokens, 
-    isRateLimitError,
+    globalRateLimiter,
+    callWithRetry,
     sleep,
     RETRY_CONFIG
 } from './rate-limiting';
@@ -1015,14 +1014,13 @@ export async function callLLMWithFallback<T>(
         
         try {
             // Apply rate limiting if enabled and we have prompt text
-            if (options?.enableRateLimiting && options?.promptText && options?.invocationType) {
-                const rateLimiter = getRateLimiter(modelName);
-                const tokensNeeded = estimateTokens(options.promptText, options.invocationType);
-                await rateLimiter.consume(tokensNeeded);
+            if (options?.enableRateLimiting && options?.promptText) {
+                // Simple token estimation: ~4 chars per token
+                const tokensNeeded = Math.ceil(options.promptText.length / 4) + 500;
+                await globalRateLimiter.consume(tokensNeeded);
                 
                 logger.debug(`[LLM RateLimit] Consumed ${tokensNeeded} tokens for ${operationName}`, {
-                    model: modelName,
-                    availableTokens: rateLimiter.getAvailableTokens()
+                    model: modelName
                 });
             }
             
@@ -1034,7 +1032,10 @@ export async function callLLMWithFallback<T>(
             lastError = error as Error;
             
             // Check if it's a rate limit error
-            if (isRateLimitError(error)) {
+            const err = error as { status?: number; message?: string };
+            const isRateLimit = err?.status === 429 || err?.message?.includes('Rate limit');
+            
+            if (isRateLimit) {
                 rateLimitRetries++;
                 
                 if (rateLimitRetries <= RETRY_CONFIG.maxRetries) {

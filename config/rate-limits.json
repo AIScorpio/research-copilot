@@ -1,0 +1,14 @@
+{
+  "_source": "Based on refactor/analysis/2026-02-25-llm-model-selection-analysis.md",
+  "_description": "Groq API Rate Limits - Developer Plan (Simplified)",
+  "_note": "Using most restrictive limit (Kimi K2: 10K TPM) as global default",
+  "global": {
+    "tpm": 10000,
+    "notes": "Applied to all LLM calls regardless of model"
+  },
+  "retry": {
+    "maxRetries": 3,
+    "baseDelayMs": 1000,
+    "maxDelayMs": 10000
+  }
+}
