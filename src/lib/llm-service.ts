@@ -5,6 +5,13 @@
 
 import Groq from 'groq-sdk';
 import { logger } from './logger';
+import { 
+    getRateLimiter, 
+    estimateTokens, 
+    isRateLimitError,
+    sleep,
+    RETRY_CONFIG
+} from './rate-limiting';
 
 // LLM Provider Types
 export type LLMProvider = 'groq' | 'openai' | 'anthropic' | 'ollama' | 'lmstudio' | 'zhipuai' | 'kimi' | 'baidu' | 'alibaba';
@@ -990,10 +997,16 @@ function getApiKeyFromEnv(providerType: string): string | undefined {
  */
 export async function callLLMWithFallback<T>(
     operation: (llm: LLMProviderInterface) => Promise<T>,
-    operationName: string = 'LLM operation'
+    operationName: string = 'LLM operation',
+    options?: {
+        promptText?: string;
+        invocationType?: 'contentAssessment' | 'tagGeneration' | 'summaryGeneration' | 'queryOptimization';
+        enableRateLimiting?: boolean;
+    }
 ): Promise<T> {
     resetLLMProviderIndex();
     let lastError: Error | null = null;
+    let rateLimitRetries = 0;
     
     while (true) {
         const llm = getLLMProvider();
@@ -1001,12 +1014,45 @@ export async function callLLMWithFallback<T>(
         const modelName = (llm as any).config?.model || 'default';
         
         try {
+            // Apply rate limiting if enabled and we have prompt text
+            if (options?.enableRateLimiting && options?.promptText && options?.invocationType) {
+                const rateLimiter = getRateLimiter(modelName);
+                const tokensNeeded = estimateTokens(options.promptText, options.invocationType);
+                await rateLimiter.consume(tokensNeeded);
+                
+                logger.debug(`[LLM RateLimit] Consumed ${tokensNeeded} tokens for ${operationName}`, {
+                    model: modelName,
+                    availableTokens: rateLimiter.getAvailableTokens()
+                });
+            }
+            
             logger.debug(`[LLM] Trying ${operationName} with ${providerName}/${modelName}`);
             const result = await operation(llm);
             logger.debug(`[LLM] ${operationName} succeeded with ${providerName}/${modelName}`);
             return result;
         } catch (error) {
             lastError = error as Error;
+            
+            // Check if it's a rate limit error
+            if (isRateLimitError(error)) {
+                rateLimitRetries++;
+                
+                if (rateLimitRetries <= RETRY_CONFIG.maxRetries) {
+                    const delay = Math.min(
+                        RETRY_CONFIG.baseDelay * Math.pow(2, rateLimitRetries - 1),
+                        RETRY_CONFIG.maxDelay
+                    );
+                    
+                    logger.warn(`[LLM RateLimit] Rate limit hit for ${providerName}/${modelName}, ` +
+                        `retry ${rateLimitRetries}/${RETRY_CONFIG.maxRetries}, waiting ${delay}ms`);
+                    
+                    await sleep(delay);
+                    continue; // Retry with same provider
+                }
+                
+                logger.debug(`[LLM RateLimit] Max retries (${RETRY_CONFIG.maxRetries}) exhausted for ${providerName}/${modelName}, switching to fallback provider`);
+            }
+            
             logger.warn(`[LLM] ${operationName} failed with ${providerName}/${modelName}: ${lastError.message}`);
             
             const nextProvider = getNextLLMProvider();
@@ -1015,6 +1061,7 @@ export async function callLLMWithFallback<T>(
                 break;
             }
             logger.debug(`[LLM] Falling back to next provider`);
+            rateLimitRetries = 0; // Reset retry counter for new provider
         }
     }
     
@@ -1026,11 +1073,17 @@ export async function callLLMWithFallback<T>(
  */
 export async function generateTextWithFallback(
     prompt: string,
-    systemPrompt?: string
+    systemPrompt?: string,
+    invocationType?: 'contentAssessment' | 'tagGeneration' | 'summaryGeneration' | 'queryOptimization'
 ): Promise<string> {
     return callLLMWithFallback(
         llm => llm.generateText(prompt, systemPrompt),
-        'generateText'
+        'generateText',
+        {
+            promptText: prompt,
+            invocationType,
+            enableRateLimiting: true
+        }
     );
 }
 
@@ -1039,11 +1092,17 @@ export async function generateTextWithFallback(
  */
 export async function generateJSONWithFallback<T>(
     prompt: string,
-    systemPrompt?: string
+    systemPrompt?: string,
+    invocationType?: 'contentAssessment' | 'tagGeneration' | 'summaryGeneration' | 'queryOptimization'
 ): Promise<T> {
     return callLLMWithFallback(
         llm => llm.generateJSON<T>(prompt, systemPrompt),
-        'generateJSON'
+        'generateJSON',
+        {
+            promptText: prompt,
+            invocationType,
+            enableRateLimiting: true
+        }
     );
 }
 
