@@ -70,7 +70,7 @@ export async function callWithRetry<T>(callFn: () => Promise<T>, itemName?: stri
       }
       
       const delay = Math.min(RETRY_CONFIG.baseDelay * Math.pow(2, attempt), RETRY_CONFIG.maxDelay);
-      logger.warn(`[Retry] ${itemName || 'request'} attempt ${attempt + 1}, wait ${delay}ms`);
+      logger.info(`[Retry] ${itemName || 'request'} attempt ${attempt + 1}, wait ${delay}ms`);
       await sleep(delay);
     }
   }
