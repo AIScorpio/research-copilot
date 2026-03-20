@@ -216,7 +216,7 @@ ABSTRACT: ${abstract || 'No abstract available'}`;
         result.technicalBonusApplied = technicalBonusApplied;
         
         // Override isRelevant based on threshold (>= 5)
-        result.isRelevant = weightedTotal >= 5;
+        result.isRelevant = weightedTotal >= 5 && dims.business > 2;
         
         logger.debug('Content relevance check complete', { 
             title: title.substring(0, 50),
@@ -385,7 +385,7 @@ function getFallbackRelevanceResult(
     );
     
     return {
-        isRelevant: weightedTotal >= 5, // Threshold: 5
+        isRelevant: weightedTotal >= 5 && businessScore > 2, // Threshold: 5 and business > 2
         relevanceScore: weightedTotal,
         confidence: 0.6,
         reasoning: 'Fallback heuristic scoring based on keyword matching',
