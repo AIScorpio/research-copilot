@@ -147,7 +147,8 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                 const optimizationOptions: QueryOptimizationOptions = {
                     focusAreas: opts.focusAreas,
                     useConfigPrompt: true,
-                    strictness: opts.queryStrictness || 'balanced'
+                    strictness: opts.queryStrictness || 'balanced',
+                    mode: opts.mode
                 };
                 
                 optimizedQuery = await optimizeQuery(searchQuery, optimizationOptions);

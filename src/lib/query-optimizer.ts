@@ -18,11 +18,14 @@ export interface QueryOptimizationOptions {
     focusAreas?: string[];
     useConfigPrompt?: boolean;
     strictness?: 'relaxed' | 'balanced' | 'strict';
+    mode?: 'auto' | 'pipeline';
 }
 
 const DEFAULT_OPTIONS: QueryOptimizationOptions = {
     focusAreas: ['risk-management', 'compliance', 'fraud-detection', 'credit-assessment', 'market-risk'],
-    useConfigPrompt: true
+    useConfigPrompt: true,
+    mode: 'auto',
+    strictness: 'balanced'
 };
 
 // Cache for prompt config
@@ -54,10 +57,61 @@ async function loadPromptConfig(): Promise<Record<string, string>> {
 
 /**
  * Get query optimization prompt from config or fallback
+ * Replaces template variables with actual values
  */
-async function getQueryOptimizationPrompt(): Promise<string> {
+async function getQueryOptimizationPrompt(options: QueryOptimizationOptions): Promise<string> {
     const config = await loadPromptConfig();
-    return config['queryOptimization'] || getFallbackQueryOptimizationPrompt();
+    let prompt = config['queryOptimization'] || getFallbackQueryOptimizationPrompt();
+    
+    // Replace template variables
+    const mode = options.mode || 'auto';
+    const strictness = options.strictness || 'balanced';
+    
+    prompt = prompt.replace(/\{\{MODE\}\}/g, mode);
+    prompt = prompt.replace(/\{\{STRICTNESS\}\}/g, strictness);
+    
+    // Replace placeholder sections with actual rules (these can be expanded later)
+    prompt = prompt.replace(/\{\{TECH_RULES\}\}/g, getTechRules());
+    prompt = prompt.replace(/\{\{DOMAIN_RULES\}\}/g, getDomainRules());
+    prompt = prompt.replace(/\{\{EXCLUSION_RULES\}\}/g, getExclusionRules());
+    
+    return prompt;
+}
+
+/**
+ * Get tech expansion rules for prompt
+ */
+function getTechRules(): string {
+    return `Expand the input with synonyms and variants:
+- "GNN" → "graph neural network" OR "GNN" OR "graph convolution" OR "graph attention"
+- "LLM" → "large language model" OR "LLM" OR "transformer" OR "GPT" OR "BERT"
+- "time series" → "time series" OR "forecasting" OR "sequential modeling"
+- "reinforcement learning" → "reinforcement learning" OR "RL" OR "policy optimization"
+- "neural network" → "neural network" OR "deep learning" OR "deep neural network"`;
+}
+
+/**
+ * Get domain selection rules for prompt
+ */
+function getDomainRules(): string {
+    return `Select 2-4 banking applications RELEVANT to the tech:
+- GNN → "AML" OR "fraud detection" OR "transaction network" OR "customer relationship"
+- LLM → "compliance" OR "regulatory reporting" OR "risk assessment" OR "document analysis"
+- Time series → "market risk" OR "trading" OR "liquidity risk" OR "volatility"
+- RL → "portfolio optimization" OR "trading strategy" OR "risk management"
+- Generic/unknown → "credit risk" OR "fraud detection" OR "compliance" OR "risk assessment"`;
+}
+
+/**
+ * Get exclusion rules for prompt
+ */
+function getExclusionRules(): string {
+    return `Select domains that ALSO use this tech (NOT banking):
+- GNN → "molecular" OR "drug discovery" OR "social network analysis" OR "recommendation systems"
+- LLM → "creative writing" OR "gaming" OR "translation" OR "chatbot" OR "entertainment"
+- Time series → "weather" OR "climate" OR "signal processing" OR "IoT"
+- RL → "game playing" OR "robotics" OR "autonomous vehicles"
+- Generic → "medical" OR "quantum" OR "astrophysics" OR "physics"`;
 }
 
 /**
@@ -109,9 +163,9 @@ export async function optimizeQuery(
         return getFallbackOptimization(query, opts);
     }
 
-    // Get system prompt
+    // Get system prompt with template variables replaced
     const systemPrompt = opts.useConfigPrompt !== false
-        ? await getQueryOptimizationPrompt()
+        ? await getQueryOptimizationPrompt(opts)
         : getFallbackQueryOptimizationPrompt();
 
     const prompt = `Optimize the following query:
@@ -146,21 +200,45 @@ Strictness Level: ${(opts.strictness || 'relaxed').toUpperCase()}`;
 }
 
 /**
- * Fallback optimization - RELAXED format (same as auto-collect)
+ * Fallback optimization - Respects mode and strictness settings
  */
 function getFallbackOptimization(
     query: string,
-    _options: QueryOptimizationOptions
+    options: QueryOptimizationOptions
 ): OptimizedQuery {
+    const mode = options.mode || 'auto';
+    const strictness = options.strictness || 'balanced';
+    
     const queryTerms = query.split(/\s+/).filter(t => t.length > 2 && t !== 'AND' && t !== 'OR');
     const expandedQuery = queryTerms.length > 1
         ? queryTerms.join(' OR ')
         : query;
 
-    const optimizedQuery = `(${expandedQuery} OR machine learning OR deep learning) AND (banking OR finance OR credit OR risk) NOT (astrophysics OR quantum OR medical)`;
+    let optimizedQuery: string;
+    
+    // Determine if banking context should be added
+    const shouldAddBanking = () => {
+        if (mode === 'auto') return true;
+        if (mode === 'pipeline' && strictness === 'strict') return true;
+        if (mode === 'pipeline' && strictness === 'balanced') {
+            // Check if query is generic or banking-related
+            const bankingKeywords = ['fraud', 'credit', 'risk', 'compliance', 'aml', 'banking', 'finance', 'trading', 'portfolio'];
+            const queryLower = query.toLowerCase();
+            return bankingKeywords.some(kw => queryLower.includes(kw));
+        }
+        return false; // relaxed mode or generic balanced
+    };
+
+    if (shouldAddBanking()) {
+        optimizedQuery = `(${expandedQuery} OR machine learning OR deep learning) AND (banking OR finance OR credit OR risk) NOT (astrophysics OR quantum OR medical)`;
+    } else {
+        optimizedQuery = `(${expandedQuery} OR machine learning OR deep learning) NOT (astrophysics OR quantum OR medical)`;
+    }
 
     logger.info('[QUERY-OPT] Source: fallback', {
         original: query,
+        mode,
+        strictness,
         optimized: optimizedQuery.substring(0, 100) + (optimizedQuery.length > 100 ? '...' : '')
     });
 
