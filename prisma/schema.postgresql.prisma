@@ -61,17 +61,53 @@ model NewsletterLog {
   paperCount Int
   createdAt  DateTime @default(now())
   papers     Paper[]  @relation("NewsletterLogToPaper")
+
+}
+
+// Daily Digest Log - Replaces NewsletterLog
+// Stores generated daily intelligence digests with quality tracking
+model DailyDigestLog {
+  id                String   @id @default(uuid())
+  dateCode          String   @unique
+  title             String
+  subtitle          String?
+  content           String
+  type              String   @default("DailyDigest")
+  actualCount       Int      // Actual existing papers (excludes deleted)
+  totalCount        Int      // Historical total (includes deleted)
+  status            String   @default("draft") // draft | published | archived | error
+  qualityScore      Float?   // 0-10 calculated score
+  validationIssues  String?  // JSON array of validation issues
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  papers            Paper[]  @relation("DailyDigestToPaper")
+
+  @@index([dateCode])
+  @@index([createdAt])
+  @@index([status])
+}
+
+// Distributed lock for preventing concurrent digest generation
+// Used by multi-instance deployments
+model DigestGenerationLock {
+  id        String   @id @default(uuid())
+  dateCode  String   @unique
+  lockedAt  DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([dateCode])
+  @@index([expiresAt])
 }
 
 model Paper {
-  id                    String          @id @default(uuid())
+  id                    String           @id @default(uuid())
   title                 String
   abstract              String?
-  url                   String          @unique
+  url                   String           @unique
   source                String
   sourceType            String?
   publicationDate       DateTime
-  collectedAt           DateTime        @default(now())
+  collectedAt           DateTime         @default(now())
   aiSummary             String?
   relevanceScore        Float?
   technicalScore        Float?
@@ -79,11 +115,13 @@ model Paper {
   timelinessScore       Float?
   practicalityScore     Float?
   assessmentReason      String?
-  technicalBonusApplied Boolean         @default(false)
+  technicalBonusApplied Boolean          @default(false)
+  deletedAt             DateTime?
   tags                  PaperTag[]
   favoritedBy           UserFavorite[]
   userTags              UserTag[]
-  newsletters           NewsletterLog[] @relation("NewsletterLogToPaper")
+  newsletters           NewsletterLog[]  @relation("NewsletterLogToPaper")
+  dailyDigests          DailyDigestLog[] @relation("DailyDigestToPaper")
 
   @@index([publicationDate])
   @@index([source])
@@ -92,6 +130,7 @@ model Paper {
   @@index([title])
   @@index([sourceType])
   @@index([source, publicationDate], map: "Paper_source_date_idx")
+  @@index([deletedAt])
 }
 
 model DeletedPaper {

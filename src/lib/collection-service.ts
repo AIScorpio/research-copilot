@@ -16,7 +16,7 @@ import { processPaper } from './processor';
 import { prisma } from './db';
 import { logger } from './logger';
 import { revalidatePath } from 'next/cache';
-import { triggerCollectionAlerts } from './newsletter';
+import { digestEngine } from './daily-digest/engine';
 import { inferSourceTypeFromName } from './source-type-service';
 import { loadCollectionConfig } from './collection-config';
 
@@ -326,11 +326,17 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
             }
         }
 
-        // Step 9: Trigger alerts and revalidate
+        // Step 9: Trigger daily digest generation and revalidate
         if (savedPapers.length > 0) {
             revalidatePath('/');
-            triggerCollectionAlerts(savedPapers.map(p => p.id)).catch(err => {
-                logger.error('Alert trigger error', { error: err });
+            
+            // Trigger Daily Digest generation (Phase 2 system)
+            // Use local date to avoid timezone issues
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            console.log(`[Collection] Triggering digest for local date: ${today}`);
+            digestEngine.triggerDailyDigestUpdate(new Date(today)).catch(err => {
+                logger.error('Daily digest generation error', { error: err });
             });
         }
 

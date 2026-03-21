@@ -1,5 +1,6 @@
-import '@testing-library/jest-dom'
+import 'groq-sdk/shims/node'
 
 global.fetch = jest.fn()
 
-process.env.DATABASE_URL = ':memory:'
+// Use file-based SQLite for tests
+process.env.DATABASE_URL = 'file:./test.db'

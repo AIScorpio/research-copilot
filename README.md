@@ -220,7 +220,7 @@ Designed with enterprise security in mind:
 
 <div align="center">
 
-*Leon X Li | Feb. 2026*
+*Feb. 2026*
 
 *Built to explore AI-augmented research workflows*
 

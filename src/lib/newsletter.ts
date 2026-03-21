@@ -1,6 +1,8 @@
 import { prisma } from './db';
 import { logger } from './logger';
 import { generateTextWithFallback } from './llm-service';
+import { promises as fs } from 'fs';
+import { join } from 'path';
 
 export interface PaperForReport {
     title: string;
@@ -8,6 +10,57 @@ export interface PaperForReport {
     source: string;
     url: string;
     tags: string[];
+}
+
+// Cache for prompt config
+let cachedPromptConfig: Record<string, string> | null = null;
+let promptConfigLastRead = 0;
+const PROMPT_CACHE_TTL = 60000; // 1 minute cache
+
+/**
+ * Load prompt configuration from config/prompts.json
+ */
+async function loadPromptConfig(): Promise<Record<string, string>> {
+    const now = Date.now();
+    if (cachedPromptConfig && (now - promptConfigLastRead) < PROMPT_CACHE_TTL) {
+        return cachedPromptConfig;
+    }
+
+    try {
+        const configPath = join(process.cwd(), 'config', 'prompts.json');
+        const configData = await fs.readFile(configPath, 'utf-8');
+        cachedPromptConfig = JSON.parse(configData);
+        promptConfigLastRead = now;
+        logger.debug('Loaded prompt config from config/prompts.json');
+        return cachedPromptConfig || {};
+    } catch (error) {
+        logger.warn('Failed to load config/prompts.json, using fallback prompts', { error });
+        return {};
+    }
+}
+
+/**
+ * Get newsletter generation prompt from config or fallback
+ */
+async function getNewsletterPrompt(): Promise<string> {
+    const config = await loadPromptConfig();
+    return config.newsletterGeneration || getFallbackNewsletterPrompt();
+}
+
+/**
+ * Fallback newsletter prompt
+ */
+function getFallbackNewsletterPrompt(): string {
+    return `You are a research bot specializing in AI and Banking. You just completed a collection session.
+
+Create a professional, highly readable newsletter digest titled "Research Copilot: Daily Intelligence Digest".
+
+Structure:
+1. **Executive Summary**: A 2-3 sentence overview of the collective focus of these papers.
+2. **Featured Insights**: Group the papers by 2-3 common themes (e.g., "Generative AI in Risk", "Network Optimization") and provide a one-paragraph technical synthesis of the findings in each theme.
+3. **Actionable Takeaways**: 3 bullet points on how a banking institution could use this new knowledge.
+
+Format in Markdown. Be technical, precise, and professional.`;
 }
 
 /**
@@ -23,20 +76,24 @@ export async function generateNewsletterReport(papers: PaperForReport[]): Promis
         URL: ${p.url}`
     ).join('\n\n');
 
-    const prompt = `You are a research bot specializing in AI and Banking. You just completed a collection session. 
-    Below is a list of newly collected research papers. 
+    // Get current date info
+    const today = new Date().toISOString().split('T')[0]; // e.g., "2026-03-22"
+    const todayFormatted = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    const issueNumber = today.replace(/-/g, '');
+
+    // Load prompt from config
+    const promptTemplate = await getNewsletterPrompt();
     
-    Create a professional, highly readable newsletter digest titled "Research Copilot: Daily Intelligence Digest".
-    
-    Structure:
-    1. **Executive Summary**: A 2-3 sentence overview of the collective focus of these papers.
-    2. **Featured Insights**: Group the papers by 2-3 common themes (e.g., "Generative AI in Risk", "Network Optimization") and provide a one-paragraph technical synthesis of the findings in each theme.
-    3. **Actionable Takeaways**: 3 bullet points on how a banking institution could use this new knowledge.
-    
-    Papers:
-    ${paperContent}
-    
-    Format in Markdown. Be technical, precise, and professional.`;
+    // Replace variables
+    const prompt = promptTemplate
+        .replace(/\{\{CURRENT_DATE\}\}/g, today)
+        .replace(/\{\{CURRENT_DATE_FORMATTED\}\}/g, todayFormatted)
+        .replace(/\{\{ISSUE_NUMBER\}\}/g, issueNumber)
+        .replace(/\{\{PAPERS\}\}/g, paperContent);
 
     try {
         // Use LLM service with fallback support (Groq → Ollama)
@@ -173,3 +230,6 @@ export async function triggerCollectionAlerts(newPaperIds: string[]) {
         logger.error('Alerts Error triggering collection alerts', { error });
     }
 }
+
+// Export for use in other modules
+export { loadPromptConfig };

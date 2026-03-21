@@ -1,0 +1,131 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "lastUpdated": "2026-03-21",
+    "description": "Daily Intelligence Digest configuration"
+  },
+  "templates": {
+    "title": "Research Copilot: Daily Intelligence Digest",
+    "subtitle": "{{TOPIC}} – {{DATE}} Edition",
+    "dateFormat": "YYYY-MM-DD",
+    "sections": [
+      {
+        "id": "executiveSummary",
+        "title": "Executive Summary",
+        "enabled": true,
+        "order": 1,
+        "maxLength": 300,
+        "requiredElements": [
+          "totalPapers",
+          "mainThemes",
+          "dateContext"
+        ]
+      },
+      {
+        "id": "featuredInsights",
+        "title": "Featured Insights",
+        "enabled": true,
+        "order": 2,
+        "groupingStrategy": "byTheme",
+        "maxThemes": 4,
+        "minPapersPerTheme": 2,
+        "maxPapersPerTheme": 5
+      },
+      {
+        "id": "otherPapers",
+        "title": "Other Notable Papers",
+        "enabled": true,
+        "order": 3,
+        "triggerWhen": "paperCount > 15",
+        "format": "bulletList",
+        "maxItems": 30
+      },
+      {
+        "id": "criticalAssessment",
+        "title": "Critical Assessment",
+        "enabled": true,
+        "order": 4,
+        "maxLength": 400,
+        "subsections": [
+          "strengths",
+          "limitations",
+          "conflicts"
+        ]
+      },
+      {
+        "id": "actionableTakeaways",
+        "title": "Actionable Takeaways",
+        "enabled": true,
+        "order": 5,
+        "format": "bulletList",
+        "maxItems": 5,
+        "requireSources": true
+      },
+      {
+        "id": "sourcesAppendix",
+        "title": "📚 Paper Sources Appendix",
+        "enabled": true,
+        "order": 99,
+        "template": "[{{NUMBER}}] {{TITLE}}. {{SOURCE}}. {{URL}}",
+        "numbering": true
+      }
+    ]
+  },
+  "generation": {
+    "triggerOnCollection": true,
+    "minPapers": 1,
+    "maxPapers": 100,
+    "autoPublish": false,
+    "coverage": {
+      "strategy": "twoTier",
+      "featuredRatio": 0.15,
+      "minFeatured": 5,
+      "maxFeatured": 12,
+      "briefRemaining": true,
+      "targetCoveragePercent": 100
+    },
+    "fallback": {
+      "enabled": true,
+      "mode": "degraded",
+      "maxRetries": 3,
+      "degradedTemplate": "simple-list"
+    }
+  },
+  "quality": {
+    "validationEnabled": true,
+    "targetScore": 10,
+    "minAcceptableScore": 7,
+    "validators": {
+      "dateAccuracy": {
+        "enabled": true,
+        "weight": 0.3
+      },
+      "citationExistence": {
+        "enabled": true,
+        "weight": 0.25
+      },
+      "coverage": {
+        "enabled": true,
+        "minPercent": 50,
+        "weight": 0.2
+      },
+      "statisticsAccuracy": {
+        "enabled": true,
+        "weight": 0.15
+      },
+      "formatConsistency": {
+        "enabled": true,
+        "weight": 0.1
+      }
+    },
+    "retry": {
+      "maxAttempts": 3,
+      "backoffMultiplier": 1.5
+    }
+  },
+  "cascadeDelete": {
+    "enabled": true,
+    "refreshOnDelete": true,
+    "updateCountOnly": false
+  }
+}

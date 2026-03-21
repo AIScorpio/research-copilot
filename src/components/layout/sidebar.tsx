@@ -151,8 +151,8 @@ export function Sidebar({ className }: SidebarProps) {
         {
             label: "Daily Digest",
             icon: BookOpen,
-            href: "/archives",
-            active: pathname === "/archives",
+            href: "/daily-digest",
+            active: pathname === "/daily-digest",
             ariaLabel: "Go to daily digest"
         },
         {

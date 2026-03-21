@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { handleError, createValidationError, createNotFoundError } from '@/lib/error-handler';
+import { digestEngine } from '@/lib/daily-digest/engine';
 
 /**
  * DELETE /api/papers/[id]
@@ -22,6 +23,18 @@ export async function DELETE(
             const handled = handleError(error);
             return NextResponse.json(handled, { status: handled.statusCode });
         }
+
+        // Step 1: Find affected digests BEFORE deleting the paper
+        const affectedDigests = await prisma.dailyDigestLog.findMany({
+            where: {
+                papers: {
+                    some: { id }
+                }
+            },
+            select: { id: true, dateCode: true }
+        });
+        
+        console.log(`[DELETE] Paper ${id} found in ${affectedDigests.length} digests:`, affectedDigests.map(d => d.dateCode));
 
         await prisma.$transaction([
             prisma.deletedPaper.upsert({
@@ -66,8 +79,32 @@ export async function DELETE(
             prisma.paperTag.deleteMany({ where: { paperId: id } }),
             prisma.userTag.deleteMany({ where: { paperId: id } }),
             prisma.userFavorite.deleteMany({ where: { paperId: id } }),
+            // Step 2: Disconnect from digests in the same transaction
+            ...affectedDigests.map(digest => 
+                prisma.dailyDigestLog.update({
+                    where: { id: digest.id },
+                    data: {
+                        papers: { disconnect: { id } }
+                    }
+                })
+            ),
             prisma.paper.delete({ where: { id } })
         ]);
+
+        // Step 3: Trigger digest regeneration for affected digests
+        // Note: Must trigger BEFORE paper is deleted, or use dateCode directly
+        if (affectedDigests.length > 0) {
+            console.log(`[DELETE] Triggering digest regeneration for:`, affectedDigests.map(d => d.dateCode));
+            for (const digest of affectedDigests) {
+                try {
+                    // Use regenerateDigest with dateCode to force regeneration
+                    await digestEngine.regenerateDigest(digest.dateCode);
+                    console.log(`[DELETE] Regenerated digest for ${digest.dateCode}`);
+                } catch (err) {
+                    console.error(`[DELETE] Failed to regenerate digest ${digest.dateCode}:`, err);
+                }
+            }
+        }
 
         return NextResponse.json({ success: true, message: "Paper removed and archived successfully" });
     } catch (error) {

@@ -3,17 +3,18 @@ import { writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '@/lib/logger';
+import type { PromptTemplates } from '@/types/prompts';
 
 const PROMPTS_PATH = join(process.cwd(), 'config', 'prompts.json');
 
 export async function POST(request: Request) {
     try {
-        const prompts = await request.json();
+        const prompts: PromptTemplates = await request.json();
         
-        // Validate required fields
-        const requiredFields = ['queryOptimization', 'contentAssessment', 'summaryGeneration', 'tagSuggestion'];
+        // Validate required fields - all should be strings
+        const requiredFields = ['queryOptimization', 'contentAssessment', 'summaryGeneration', 'tagSuggestion', 'digestGeneration'];
         for (const field of requiredFields) {
-            if (!prompts[field] || typeof prompts[field] !== 'string') {
+            if (!prompts[field as keyof PromptTemplates] || typeof prompts[field as keyof PromptTemplates] !== 'string') {
                 return NextResponse.json(
                     { success: false, message: `Missing or invalid field: ${field}` },
                     { status: 400 }
