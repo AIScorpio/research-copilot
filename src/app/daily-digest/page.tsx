@@ -277,18 +277,6 @@ export default function ArchivesPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Intelligence Archives</h1>
                     <p className="text-muted-foreground">Access your daily AI-synthesized research digests.</p>
                 </div>
-                {selected && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleManualRefresh}
-                        disabled={isRefreshing}
-                        className="gap-2"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        {isRefreshing ? 'Refreshing...' : 'Regenerate'}
-                    </Button>
-                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
@@ -405,29 +393,27 @@ export default function ArchivesPage() {
                                     <div className="flex items-center gap-2">
                                         <Button
                                             variant="outline"
-                                            size="icon"
-                                            className="h-8 w-8"
+                                            size="sm"
+                                            onClick={handleManualRefresh}
+                                            disabled={isRefreshing}
+                                            className="gap-2 h-8"
+                                        >
+                                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                            {isRefreshing ? 'Refreshing...' : 'Regenerate'}
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-2 h-8"
                                             onClick={() => {
-                                                navigator.clipboard.writeText(window.location.href)
-                                                addToast("Link copied to clipboard", "success")
+                                                if (selected?.content) {
+                                                    navigator.clipboard.writeText(selected.content)
+                                                    addToast("Markdown copied to clipboard", "success")
+                                                }
                                             }}
                                         >
-                                            <LinkIcon className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => window.print()}
-                                        >
-                                            <Printer className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                        >
-                                            <Share2 className="h-4 w-4" />
+                                            <FileText className="h-4 w-4" />
+                                            Copy Markdown
                                         </Button>
                                     </div>
                                 </div>
