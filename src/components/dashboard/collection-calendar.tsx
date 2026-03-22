@@ -21,9 +21,6 @@ export function CollectionCalendar({ dailyStats, trigger }: CollectionCalendarPr
     const [currentDate, setCurrentDate] = useState(new Date())
     
     // Calendar logic
-    const todayBeijing = getBeijingDateCode()
-    const [todayYear, todayMonth, todayDay] = todayBeijing.split('-').map(Number)
-    
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
 
@@ -73,7 +70,7 @@ export function CollectionCalendar({ dailyStats, trigger }: CollectionCalendarPr
                         {days.map(day => {
                             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                             const count = dailyStats[dateStr] || 0
-                            const isToday = dateStr === todayBeijing
+                            const isToday = dateStr === getBeijingDateCode()
 
                             return (
                                 <div
