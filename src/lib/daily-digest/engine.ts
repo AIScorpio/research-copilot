@@ -417,50 +417,68 @@ export class DigestEngineImpl implements DailyDigestEngine {
     // Calculate actual count (excluding deleted)
     const actualCount = papers.length;
     
-    // Use transaction for atomic operations
-    const digest = await prisma.$transaction(async (tx) => {
-      // Create or update digest
-      const result = await tx.dailyDigestLog.upsert({
-        where: { dateCode },
-        create: {
-          dateCode,
-          title: generated.title,
-          subtitle: generated.subtitle,
-          content: generated.content,
-          type: 'DailyDigest',
-          actualCount,
-          totalCount: actualCount,
-          status: 'published',
-          qualityScore: validationReport?.score ?? null,
-          validationIssues: validationReport ? JSON.stringify(validationReport.details) : null,
-          papers: {
-            connect: papers.map(p => ({ id: p.id }))
-          }
-        },
-        update: {
-          title: generated.title,
-          subtitle: generated.subtitle,
-          content: generated.content,
-          actualCount,
-          totalCount: actualCount,
-          status: 'published',
-          qualityScore: validationReport?.score ?? null,
-          validationIssues: validationReport ? JSON.stringify(validationReport.details) : null,
-          papers: {
-            set: [], // Clear existing
-            connect: papers.map(p => ({ id: p.id }))
-          },
-          updatedAt: new Date()
-        },
-        include: {
-          papers: true
-        }
-      });
-      
-      return result;
-    });
+    // Use transaction with timeout for Vercel compatibility
+    const maxRetries = 3;
+    let lastError;
     
-    return this.mapPrismaDigestToType(digest);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const digest = await prisma.$transaction(async (tx) => {
+          // Create or update digest
+          const result = await tx.dailyDigestLog.upsert({
+            where: { dateCode },
+            create: {
+              dateCode,
+              title: generated.title,
+              subtitle: generated.subtitle,
+              content: generated.content,
+              type: 'DailyDigest',
+              actualCount,
+              totalCount: actualCount,
+              status: 'published',
+              qualityScore: validationReport?.score ?? null,
+              validationIssues: validationReport ? JSON.stringify(validationReport.details) : null,
+              papers: {
+                connect: papers.map(p => ({ id: p.id }))
+              }
+            },
+            update: {
+              title: generated.title,
+              subtitle: generated.subtitle,
+              content: generated.content,
+              actualCount,
+              totalCount: actualCount,
+              status: 'published',
+              qualityScore: validationReport?.score ?? null,
+              validationIssues: validationReport ? JSON.stringify(validationReport.details) : null,
+              papers: {
+                set: [], // Clear existing
+                connect: papers.map(p => ({ id: p.id }))
+              },
+              updatedAt: new Date()
+            },
+            include: {
+              papers: true
+            }
+          });
+          
+          return result;
+        }, {
+          maxWait: 10000, // 10s max wait for connection
+          timeout: 30000  // 30s timeout for transaction
+        });
+        
+        return this.mapPrismaDigestToType(digest);
+      } catch (error) {
+        lastError = error;
+        console.error(`[DigestEngine] Save attempt ${attempt}/${maxRetries} failed`, error);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+    
+    throw lastError;
   }
   
   /**
