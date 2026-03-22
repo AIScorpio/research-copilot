@@ -17,6 +17,7 @@ import { prisma } from './db';
 import { logger } from './logger';
 import { revalidatePath } from 'next/cache';
 import { digestEngine } from './daily-digest/engine';
+import { getBeijingDateCode } from './timezone-utils';
 import { inferSourceTypeFromName } from './source-type-service';
 import { loadCollectionConfig } from './collection-config';
 
@@ -331,11 +332,10 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
             revalidatePath('/');
             
             // Trigger Daily Digest generation (Phase 2 system)
-            // Use local date to avoid timezone issues
-            const now = new Date();
-            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-            console.log(`[Collection] Triggering digest for local date: ${today}`);
-            digestEngine.triggerDailyDigestUpdate(new Date(today)).catch(err => {
+            // Use Beijing Time (UTC+8) as anchor for consistency across all environments
+            const today = getBeijingDateCode();
+            console.log(`[Collection] Triggering digest for Beijing date: ${today}`);
+            digestEngine.triggerDailyDigestUpdate(today).catch(err => {
                 logger.error('Daily digest generation error', { error: err });
             });
         }

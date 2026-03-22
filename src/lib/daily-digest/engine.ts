@@ -16,6 +16,7 @@ import type {
   DigestConfig,
   GeneratedContent
 } from './types';
+import { getBeijingDateCode, getBeijingDayRange } from '@/lib/timezone-utils';
 
 /**
  * Prisma DailyDigestLog with papers relation
@@ -55,9 +56,8 @@ export class DigestEngineImpl implements DailyDigestEngine {
    * Trigger digest update for a specific date
    * Implements distributed locking to prevent concurrent generation
    */
-  async triggerDailyDigestUpdate(date?: Date): Promise<DigestResult> {
-    const targetDate = date || new Date();
-    const dateCode = targetDate.toISOString().split('T')[0];
+  async triggerDailyDigestUpdate(date?: Date | string): Promise<DigestResult> {
+    const dateCode = typeof date === 'string' ? date : getBeijingDateCode(date);
     
     // Check if generation already in progress for this date
     const existingLock = this.generationLocks.get(dateCode);
@@ -72,10 +72,8 @@ export class DigestEngineImpl implements DailyDigestEngine {
       include: { papers: true }
     });
     
-    // Check current paper count for this date
-    const [year, month, day] = dateCode.split('-').map(Number);
-    const startDate = new Date(year, month - 1, day, 0, 0, 0);
-    const endDate = new Date(year, month - 1, day + 1, 0, 0, 0);
+    // Check current paper count for this date (using Beijing Time range)
+    const { startUTC: startDate, endUTC: endDate } = getBeijingDayRange(dateCode);
     
     const currentPaperCount = await prisma.paper.count({
       where: {
@@ -262,12 +260,10 @@ export class DigestEngineImpl implements DailyDigestEngine {
    * Automatically excludes deleted papers
    */
   private async fetchPapersForDate(dateCode: string): Promise<Paper[]> {
-    // Parse dateCode and create local date range
-    const [year, month, day] = dateCode.split('-').map(Number);
-    const startDate = new Date(year, month - 1, day, 0, 0, 0); // Local time 00:00:00
-    const endDate = new Date(year, month - 1, day + 1, 0, 0, 0); // Local time next day 00:00:00
+    // Parse dateCode and create Beijing Time date range (converted to UTC for DB query)
+    const { startUTC: startDate, endUTC: endDate } = getBeijingDayRange(dateCode);
     
-    console.log(`[DigestEngine] Fetching papers from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`[DigestEngine] Fetching papers for Beijing date ${dateCode} (UTC: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
     const papers = await prisma.paper.findMany({
       where: {
@@ -477,7 +473,7 @@ export class DigestEngineImpl implements DailyDigestEngine {
     });
     
     // Trigger new generation
-    return this.triggerDailyDigestUpdate(new Date(dateCode));
+    return this.triggerDailyDigestUpdate(dateCode);
   }
   
   /**
@@ -495,7 +491,7 @@ export class DigestEngineImpl implements DailyDigestEngine {
     }
     
     // Generate new digest
-    const result = await this.triggerDailyDigestUpdate(new Date(dateCode));
+    const result = await this.triggerDailyDigestUpdate(dateCode);
     
     if (!result.success || !result.digest) {
       throw new DigestGenerationError(`Failed to generate digest for ${dateCode}`);
