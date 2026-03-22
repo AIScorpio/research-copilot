@@ -50,6 +50,8 @@ next-env.d.ts
 prisma/dev.db
 prisma/*.db-journal
 prisma/schema.prisma
+prisma/*.backup.*
+prisma/test.db
 
 # Root level database
 dev.db
@@ -59,6 +61,11 @@ dev.db
 backup_*.json
 *.backup
 *.bak
+*.backup.*
+
+# Jest configuration (when not running tests)
+jest.config.js
+jest.setup.js
 
 # Test reports and outputs
 *_test_report.md
