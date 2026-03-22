@@ -12,14 +12,20 @@ export async function generateText(options: {
   system?: string;
   temperature?: number;
   maxTokens?: number;
+  timeout?: number;
 }): Promise<{ text: string }> {
-  const { prompt, system } = options;
+  const { prompt, system, timeout = 45000 } = options;
   
   try {
-    const result = await generateTextWithFallback(
-      prompt,
-      system
-    );
+    // Add timeout for Vercel compatibility (45s to stay under 60s function limit)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('LLM request timeout')), timeout);
+    });
+    
+    const result = await Promise.race([
+      generateTextWithFallback(prompt, system),
+      timeoutPromise
+    ]);
     
     return { text: result };
   } catch (error) {
