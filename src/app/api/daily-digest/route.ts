@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { digestEngine } from '@/lib/daily-digest/engine';
+import { getBeijingDayRange } from '@/lib/timezone-utils';
 
 /**
  * Check if digest needs refresh by comparing paper counts
@@ -14,10 +15,8 @@ async function shouldRefresh(dateCode: string): Promise<boolean> {
   if (!digest) return true; // Doesn't exist, need to create
   if (digest.status === 'error') return true; // Error state, retry
   
-  // Count current papers for this date (excluding deleted)
-  const [year, month, day] = dateCode.split('-').map(Number);
-  const startDate = new Date(year, month - 1, day, 0, 0, 0);
-  const endDate = new Date(year, month - 1, day + 1, 0, 0, 0);
+  // Count current papers for this date (using Beijing Time range)
+  const { startUTC: startDate, endUTC: endDate } = getBeijingDayRange(dateCode);
   
   const currentPaperCount = await prisma.paper.count({
     where: {
@@ -39,9 +38,7 @@ async function shouldRefresh(dateCode: string): Promise<boolean> {
  * Count papers for a specific date
  */
 async function countPapersForDate(dateCode: string): Promise<number> {
-  const [year, month, day] = dateCode.split('-').map(Number);
-  const startDate = new Date(year, month - 1, day, 0, 0, 0);
-  const endDate = new Date(year, month - 1, day + 1, 0, 0, 0);
+  const { startUTC: startDate, endUTC: endDate } = getBeijingDayRange(dateCode);
   
   return await prisma.paper.count({
     where: {
