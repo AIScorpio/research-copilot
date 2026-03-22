@@ -274,7 +274,7 @@ export default function ArchivesPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Intelligence Archives</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Daily Intelligence</h1>
                     <p className="text-muted-foreground">Access your daily AI-synthesized research digests.</p>
                 </div>
             </div>
