@@ -14,19 +14,27 @@ export async function generateText(options: {
   maxTokens?: number;
   timeout?: number;
 }): Promise<{ text: string }> {
-  const { prompt, system, timeout = 45000 } = options;
+  const { prompt, system, timeout = 30000 } = options;
+  
+  console.log(`[LLM] Starting generateText with timeout ${timeout}ms, prompt length: ${prompt.length}`);
   
   try {
-    // Add timeout for Vercel compatibility (45s to stay under 60s function limit)
+    // Add timeout for Vercel compatibility (30s to stay well under function limit)
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('LLM request timeout')), timeout);
+      setTimeout(() => {
+        console.error(`[LLM] Timeout after ${timeout}ms`);
+        reject(new Error(`LLM request timeout after ${timeout}ms`));
+      }, timeout);
     });
     
+    const startTime = Date.now();
     const result = await Promise.race([
       generateTextWithFallback(prompt, system),
       timeoutPromise
     ]);
+    const duration = Date.now() - startTime;
     
+    console.log(`[LLM] Success in ${duration}ms, result length: ${result.length}`);
     return { text: result };
   } catch (error) {
     console.error('[LLM] Failed to generate text', error);

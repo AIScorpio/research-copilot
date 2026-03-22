@@ -91,18 +91,14 @@ export async function DELETE(
             prisma.paper.delete({ where: { id } })
         ]);
 
-        // Step 3: Trigger digest regeneration for affected digests
-        // Note: Must trigger BEFORE paper is deleted, or use dateCode directly
+        // Step 3: Trigger digest update for affected digests (fire-and-forget)
+        // P0 optimization: async update to avoid blocking delete operation
         if (affectedDigests.length > 0) {
-            console.log(`[DELETE] Triggering digest regeneration for:`, affectedDigests.map(d => d.dateCode));
+            console.log(`[DELETE] Triggering digest update for:`, affectedDigests.map(d => d.dateCode));
             for (const digest of affectedDigests) {
-                try {
-                    // Use regenerateDigest with dateCode to force regeneration
-                    await digestEngine.regenerateDigest(digest.dateCode);
-                    console.log(`[DELETE] Regenerated digest for ${digest.dateCode}`);
-                } catch (err) {
-                    console.error(`[DELETE] Failed to regenerate digest ${digest.dateCode}:`, err);
-                }
+                digestEngine.triggerDailyDigestUpdate(digest.dateCode).catch(err => {
+                    console.error(`[DELETE] Failed to update digest ${digest.dateCode}:`, err);
+                });
             }
         }
 

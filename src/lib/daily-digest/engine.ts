@@ -287,7 +287,7 @@ export class DigestEngineImpl implements DailyDigestEngine {
   
   /**
    * Generate digest with validation and retry logic
-   */
+    */
   private async generateWithValidation(
     papers: Paper[], 
     dateCode: string, 
@@ -297,7 +297,18 @@ export class DigestEngineImpl implements DailyDigestEngine {
     if (!config.quality.validationEnabled) {
       console.log(`[DigestEngine] Validation disabled, generating without validation`);
       const generated = await this.generator.generate(papers, dateCode, config);
-      const digest = await this.saveDigest(dateCode, generated, null, papers);
+      const { digest, needsRegeneration } = await this.saveDigest(dateCode, generated, null, papers);
+      
+      // If papers were deleted during generation, trigger regeneration
+      if (needsRegeneration) {
+        console.log(`[DigestEngine] Papers changed during generation, scheduling regeneration for ${dateCode}`);
+        setImmediate(() => {
+          this.triggerDailyDigestUpdate(dateCode).catch(err => {
+            console.error(`[DigestEngine] Scheduled regeneration failed for ${dateCode}`, err);
+          });
+        });
+      }
+      
       return {
         success: true,
         digest,
@@ -321,7 +332,17 @@ export class DigestEngineImpl implements DailyDigestEngine {
         
         if (validationReport.passed) {
           // Validation passed - save digest
-          const digest = await this.saveDigest(dateCode, generated, validationReport, papers);
+          const { digest, needsRegeneration } = await this.saveDigest(dateCode, generated, validationReport, papers);
+          
+          // If papers were deleted during generation, trigger regeneration
+          if (needsRegeneration) {
+            console.log(`[DigestEngine] Papers changed during generation, scheduling regeneration for ${dateCode}`);
+            setImmediate(() => {
+              this.triggerDailyDigestUpdate(dateCode).catch(err => {
+                console.error(`[DigestEngine] Scheduled regeneration failed for ${dateCode}`, err);
+              });
+            });
+          }
           
           return {
             success: true,
@@ -407,25 +428,50 @@ export class DigestEngineImpl implements DailyDigestEngine {
   
   /**
    * Save generated digest to database with transaction safety
+   * Re-queries current papers to handle race conditions (deletions during LLM generation)
+   * Returns { digest, needsRegeneration } to signal if content is stale
    */
   private async saveDigest(
     dateCode: string, 
     generated: GeneratedContent, 
     validationReport: ValidationReport | null,
     papers: Paper[]
-  ): Promise<DailyDigestLog> {
-    // Calculate actual count (excluding deleted)
-    const actualCount = papers.length;
-    
-    // Use transaction with timeout for Vercel compatibility
+  ): Promise<{ digest: DailyDigestLog; needsRegeneration: boolean }> {
     const maxRetries = 3;
     let lastError;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const digest = await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
+          // Re-query current existing paper IDs to handle race conditions
+          // Papers may have been deleted during LLM generation
+          const { startUTC: startDate, endUTC: endDate } = getBeijingDayRange(dateCode);
+          const currentPapers = await tx.paper.findMany({
+            where: {
+              collectedAt: {
+                gte: startDate,
+                lt: endDate
+              },
+              deletedAt: null
+            },
+            select: { id: true }
+          });
+          
+          const currentPaperIds = currentPapers.map(p => p.id);
+          const actualCount = currentPaperIds.length;
+          const originalCount = papers.length;
+          
+          // Check if papers were deleted during LLM generation
+          const needsRegeneration = currentPaperIds.length < originalCount;
+          
+          console.log(`[DigestEngine] Saving digest with ${actualCount} papers (original: ${originalCount}), needsRegeneration: ${needsRegeneration}`);
+          
+          // Use originalCount for actualCount to trigger lazy refresh
+          // This ensures the digest content matches the connected papers
+          const storedCount = needsRegeneration ? originalCount : actualCount;
+          
           // Create or update digest
-          const result = await tx.dailyDigestLog.upsert({
+          const digest = await tx.dailyDigestLog.upsert({
             where: { dateCode },
             create: {
               dateCode,
@@ -433,27 +479,27 @@ export class DigestEngineImpl implements DailyDigestEngine {
               subtitle: generated.subtitle,
               content: generated.content,
               type: 'DailyDigest',
-              actualCount,
-              totalCount: actualCount,
+              actualCount: storedCount,
+              totalCount: storedCount,
               status: 'published',
               qualityScore: validationReport?.score ?? null,
               validationIssues: validationReport ? JSON.stringify(validationReport.details) : null,
               papers: {
-                connect: papers.map(p => ({ id: p.id }))
+                connect: currentPaperIds.map(id => ({ id }))
               }
             },
             update: {
               title: generated.title,
               subtitle: generated.subtitle,
               content: generated.content,
-              actualCount,
-              totalCount: actualCount,
+              actualCount: storedCount,
+              totalCount: storedCount,
               status: 'published',
               qualityScore: validationReport?.score ?? null,
               validationIssues: validationReport ? JSON.stringify(validationReport.details) : null,
               papers: {
                 set: [], // Clear existing
-                connect: papers.map(p => ({ id: p.id }))
+                connect: currentPaperIds.map(id => ({ id }))
               },
               updatedAt: new Date()
             },
@@ -462,13 +508,16 @@ export class DigestEngineImpl implements DailyDigestEngine {
             }
           });
           
-          return result;
+          return { 
+            digest: this.mapPrismaDigestToType(digest), 
+            needsRegeneration 
+          };
         }, {
           maxWait: 10000, // 10s max wait for connection
           timeout: 30000  // 30s timeout for transaction
         });
         
-        return this.mapPrismaDigestToType(digest);
+        return result;
       } catch (error) {
         lastError = error;
         console.error(`[DigestEngine] Save attempt ${attempt}/${maxRetries} failed`, error);
