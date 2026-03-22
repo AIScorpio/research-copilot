@@ -4,6 +4,7 @@ import { TopicChart } from "@/components/dashboard/topic-chart"
 import { MethodologyChart } from "@/components/dashboard/methodology-chart"
 import { FeatureCards } from "@/components/dashboard/feature-cards"
 import { Zap } from "lucide-react"
+import { getBeijingDateCode, getBeijingDayRange, getBeijingNow } from "@/lib/timezone-utils"
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,27 +12,32 @@ export const revalidate = 0;
 async function getDashboardData() {
   const total = await prisma.paper.count();
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  // Use Beijing Time for consistency across all environments
+  const todayBeijing = getBeijingDateCode();
+  const { startUTC: startOfTodayBeijing } = getBeijingDayRange(todayBeijing);
 
   const todayCount = await prisma.paper.count({
-    where: { collectedAt: { gte: startOfToday } }
+    where: { collectedAt: { gte: startOfTodayBeijing } }
   });
 
   const previousTotal = total - todayCount;
   const growthRate = previousTotal > 0 ? (todayCount / previousTotal) * 100 : 0;
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Calculate 30 days ago in Beijing Time
+  const nowBeijing = getBeijingNow();
+  const thirtyDaysAgoBeijing = new Date(nowBeijing);
+  thirtyDaysAgoBeijing.setDate(thirtyDaysAgoBeijing.getDate() - 30);
+  const thirtyDaysAgoUTC = new Date(thirtyDaysAgoBeijing.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
 
   const dailyHistory = await prisma.paper.findMany({
-    where: { collectedAt: { gte: thirtyDaysAgo } },
+    where: { collectedAt: { gte: thirtyDaysAgoUTC } },
     select: { collectedAt: true }
   });
 
+  // Group by Beijing Time date
   const dailyStats: Record<string, number> = {};
   dailyHistory.forEach(p => {
-    const dateStr = p.collectedAt.toISOString().split('T')[0];
+    const dateStr = getBeijingDateCode(p.collectedAt);
     dailyStats[dateStr] = (dailyStats[dateStr] || 0) + 1;
   });
 
