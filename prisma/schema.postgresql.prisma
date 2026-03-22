@@ -1,0 +1,347 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String                   @id @default(uuid())
+  email            String                   @unique
+  password         String
+  emailAlerts      Boolean                  @default(false)
+  newsletterAlerts Boolean                  @default(false)
+  createdAt        DateTime                 @default(now())
+  image            String?
+  name             String?
+  accounts         Account[]
+  subscribers      NotificationSubscriber[]
+  favorites        UserFavorite[]
+  llmConfigs       UserLLMConfig[]
+  tags             UserTag[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model NotificationSubscriber {
+  id        String   @id @default(uuid())
+  email     String
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, email])
+}
+
+model NewsletterLog {
+  id         String   @id @default(uuid())
+  dateCode   String   @unique
+  title      String
+  content    String
+  type       String   @default("Newsletter")
+  paperCount Int
+  createdAt  DateTime @default(now())
+  papers     Paper[]  @relation("NewsletterLogToPaper")
+
+}
+
+// Daily Digest Log - Replaces NewsletterLog
+// Stores generated daily intelligence digests with quality tracking
+model DailyDigestLog {
+  id                String   @id @default(uuid())
+  dateCode          String   @unique
+  title             String
+  subtitle          String?
+  content           String
+  type              String   @default("DailyDigest")
+  actualCount       Int      // Actual existing papers (excludes deleted)
+  totalCount        Int      // Historical total (includes deleted)
+  status            String   @default("draft") // draft | published | archived | error
+  qualityScore      Float?   // 0-10 calculated score
+  validationIssues  String?  // JSON array of validation issues
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  papers            Paper[]  @relation("DailyDigestToPaper")
+
+  @@index([dateCode])
+  @@index([createdAt])
+  @@index([status])
+}
+
+// Distributed lock for preventing concurrent digest generation
+// Used by multi-instance deployments
+model DigestGenerationLock {
+  id        String   @id @default(uuid())
+  dateCode  String   @unique
+  lockedAt  DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([dateCode])
+  @@index([expiresAt])
+}
+
+model Paper {
+  id                    String           @id @default(uuid())
+  title                 String
+  abstract              String?
+  url                   String           @unique
+  source                String
+  sourceType            String?
+  publicationDate       DateTime
+  collectedAt           DateTime         @default(now())
+  aiSummary             String?
+  relevanceScore        Float?
+  technicalScore        Float?
+  businessScore         Float?
+  timelinessScore       Float?
+  practicalityScore     Float?
+  assessmentReason      String?
+  technicalBonusApplied Boolean          @default(false)
+  deletedAt             DateTime?
+  tags                  PaperTag[]
+  favoritedBy           UserFavorite[]
+  userTags              UserTag[]
+  newsletters           NewsletterLog[]  @relation("NewsletterLogToPaper")
+  dailyDigests          DailyDigestLog[] @relation("DailyDigestToPaper")
+
+  @@index([publicationDate])
+  @@index([source])
+  @@index([url])
+  @@index([collectedAt])
+  @@index([title])
+  @@index([sourceType])
+  @@index([source, publicationDate], map: "Paper_source_date_idx")
+  @@index([deletedAt])
+}
+
+model DeletedPaper {
+  id                    String    @id @default(uuid())
+  originalId            String    @unique
+  title                 String
+  abstract              String?
+  url                   String
+  source                String
+  sourceType            String?
+  publicationDate       DateTime
+  collectedAt           DateTime
+  aiSummary             String?
+  relevanceScore        Float?
+  technicalScore        Float?
+  businessScore         Float?
+  timelinessScore       Float?
+  practicalityScore     Float?
+  assessmentReason      String?
+  technicalBonusApplied Boolean   @default(false)
+  deletedAt             DateTime  @default(now())
+  deletedBy             String?
+
+  @@index([deletedAt])
+  @@index([source])
+  @@index([originalId])
+}
+
+model Tag {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  category  String?
+  papers    PaperTag[]
+  trendData TrendData[]
+  userTags  UserTag[]
+
+  @@index([category])
+}
+
+model PaperTag {
+  paperId String
+  tagId   String
+  tag     Tag    @relation(fields: [tagId], references: [id])
+  paper   Paper  @relation(fields: [paperId], references: [id])
+
+  @@id([paperId, tagId])
+  @@index([paperId])
+  @@index([tagId])
+}
+
+model UserFavorite {
+  userId  String
+  paperId String
+  paper   Paper  @relation(fields: [paperId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
+
+  @@id([userId, paperId])
+}
+
+model UserTag {
+  id      String @id @default(uuid())
+  userId  String
+  paperId String
+  tagId   String
+  tag     Tag    @relation(fields: [tagId], references: [id])
+  paper   Paper  @relation(fields: [paperId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
+
+  @@index([paperId])
+}
+
+model Source {
+  id                String             @id @default(uuid())
+  name              String             @unique
+  displayName       String?
+  url               String
+  type              String             @default("academic")
+  enabled           Boolean            @default(true)
+  requiresAuth      Boolean            @default(false)
+  authConfig        String?
+  createdAt         DateTime           @default(now())
+  socialCredentials SocialCredential[]
+
+  @@index([type])
+  @@index([enabled])
+}
+
+model SocialCredential {
+  id           String    @id @default(uuid())
+  sourceId     String
+  platform     String
+  accessToken  String?
+  refreshToken String?
+  username     String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  source       Source    @relation(fields: [sourceId], references: [id])
+
+  @@unique([sourceId, platform])
+}
+
+model TrendData {
+  id        String   @id @default(uuid())
+  tagId     String
+  date      DateTime
+  count     Int
+  createdAt DateTime @default(now())
+  tag       Tag      @relation(fields: [tagId], references: [id])
+
+  @@unique([tagId, date])
+  @@index([date])
+  @@index([tagId, date])
+}
+
+model RegulatoryAlert {
+  id         String   @id @default(uuid())
+  sourceId   String
+  sourceName String
+  title      String
+  content    String
+  url        String
+  keywords   String
+  relevance  Int      @default(50)
+  priority   String   @default("MEDIUM")
+  status     String   @default("new")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([priority, status])
+  @@index([sourceId])
+  @@index([createdAt])
+}
+
+model LLMProviderBase {
+  id          String          @id @default(uuid())
+  type        String          @unique
+  name        String
+  description String?
+  isCloud     Boolean         @default(true)
+  baseUrl     String?
+  docsUrl     String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  models      LLMModelBase[]
+  userConfigs UserLLMConfig[]
+
+  @@index([type])
+  @@index([isCloud])
+}
+
+model LLMModelBase {
+  id            String          @id @default(uuid())
+  providerId    String
+  externalId    String
+  name          String
+  description   String?
+  contextWindow Int?
+  capabilities  String
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  provider      LLMProviderBase @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  userModels    UserLLMModel[]
+
+  @@unique([providerId, externalId])
+  @@index([providerId])
+  @@index([isActive])
+}
+
+model UserLLMConfig {
+  id           String          @id @default(uuid())
+  userId       String
+  providerId   String
+  name         String
+  apiKey       String?
+  baseUrl      String?
+  status       String          @default("untested")
+  errorMessage String?
+  priority     Int             @default(0)
+  isEnabled    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+  provider     LLMProviderBase @relation(fields: [providerId], references: [id])
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userModels   UserLLMModel[]
+
+  @@unique([userId, providerId, name])
+  @@index([userId])
+  @@index([providerId])
+  @@index([status])
+  @@index([priority])
+  @@index([isEnabled])
+  @@index([deletedAt])
+}
+
+model UserLLMModel {
+  id           String        @id @default(uuid())
+  userConfigId String
+  modelId      String
+  isDefault    Boolean       @default(false)
+  temperature  Float?
+  maxTokens    Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  model        LLMModelBase  @relation(fields: [modelId], references: [id])
+  userConfig   UserLLMConfig @relation(fields: [userConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([userConfigId, modelId])
+  @@index([userConfigId])
+  @@index([modelId])
+}
