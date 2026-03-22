@@ -10,6 +10,7 @@ import {
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { getBeijingDateCode } from "@/lib/timezone-utils"
 
 interface CollectionCalendarProps {
     dailyStats: Record<string, number>
@@ -18,8 +19,11 @@ interface CollectionCalendarProps {
 
 export function CollectionCalendar({ dailyStats, trigger }: CollectionCalendarProps) {
     const [currentDate, setCurrentDate] = useState(new Date())
-
+    
     // Calendar logic
+    const todayBeijing = getBeijingDateCode()
+    const [todayYear, todayMonth, todayDay] = todayBeijing.split('-').map(Number)
+    
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
 
@@ -69,7 +73,7 @@ export function CollectionCalendar({ dailyStats, trigger }: CollectionCalendarPr
                         {days.map(day => {
                             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                             const count = dailyStats[dateStr] || 0
-                            const isToday = new Date().toISOString().split('T')[0] === dateStr
+                            const isToday = dateStr === todayBeijing
 
                             return (
                                 <div
