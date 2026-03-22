@@ -38,15 +38,22 @@ export class DigestGenerator {
     dateCode: string, 
     config: DigestConfig
   ): Promise<GeneratedContent> {
+    console.log(`[DigestGenerator] generate() called with ${papers.length} papers, dateCode=${dateCode}`);
+    
     try {
       // Load prompts configuration
+      console.log('[DigestGenerator] Step 1: Loading prompts config...');
       const promptsConfig = await this.loadPromptsConfig();
+      console.log('[DigestGenerator] Step 1 complete: prompts loaded');
       
       // Select papers for featured section (based on configuration)
+      console.log('[DigestGenerator] Step 2: Selecting featured papers...');
       const featuredPapers = this.selectFeaturedPapers(papers, config);
       const otherPapers = papers.filter(p => !featuredPapers.includes(p));
+      console.log(`[DigestGenerator] Step 2 complete: ${featuredPapers.length} featured, ${otherPapers.length} other`);
       
       // Build the full prompt with variables replaced
+      console.log('[DigestGenerator] Step 3: Building prompt...');
       const prompt = this.buildPrompt(
         papers, 
         featuredPapers, 
@@ -55,14 +62,19 @@ export class DigestGenerator {
         promptsConfig.digestGeneration,
         config
       );
+      console.log(`[DigestGenerator] Step 3 complete: prompt built, length=${prompt.length}`);
       
       // Generate content using LLM (no separate system prompt, it's all in the prompt)
+      console.log('[DigestGenerator] Step 4: Calling LLM...');
       const result = await generateText({
         prompt
       });
+      console.log(`[DigestGenerator] Step 4 complete: LLM returned, result length=${result.text.length}`);
       
       // Parse generated content
+      console.log('[DigestGenerator] Step 5: Parsing generated content...');
       const content = this.parseGeneratedContent(result.text);
+      console.log('[DigestGenerator] Step 5 complete: content parsed');
       
       // Force inject date into content if not present
       let bodyContent = content.body;
@@ -100,18 +112,37 @@ export class DigestGenerator {
    * Load prompts configuration from file with validation
    */
   private async loadPromptsConfig(): Promise<PromptTemplates> {
+    console.log('[DigestGenerator] loadPromptsConfig() starting...');
+    
+    console.log('[DigestGenerator] Importing fs/promises...');
     const fs = await import('fs/promises');
+    console.log('[DigestGenerator] fs/promises imported');
+    
+    console.log('[DigestGenerator] Importing path...');
     const path = await import('path');
-
-    const promptsPath = path.join(process.cwd(), 'config', 'prompts.json');
+    console.log('[DigestGenerator] path imported');
+    
+    const cwd = process.cwd();
+    console.log(`[DigestGenerator] process.cwd() = ${cwd}`);
+    
+    const promptsPath = path.join(cwd, 'config', 'prompts.json');
+    console.log(`[DigestGenerator] promptsPath = ${promptsPath}`);
+    
+    console.log('[DigestGenerator] Reading prompts.json...');
     const content = await fs.readFile(promptsPath, 'utf-8');
+    console.log(`[DigestGenerator] prompts.json read, length = ${content.length}`);
+    
+    console.log('[DigestGenerator] Parsing JSON...');
     const promptConfig: PromptTemplates = JSON.parse(content);
+    console.log('[DigestGenerator] JSON parsed successfully');
 
     // Runtime validation - digestGeneration should be a string like other prompts
     if (!promptConfig.digestGeneration || typeof promptConfig.digestGeneration !== 'string') {
+      console.error('[DigestGenerator] Validation failed: digestGeneration missing or not string');
       throw new DigestGenerationError('Invalid prompts config: digestGeneration is missing or not a string');
     }
-
+    
+    console.log('[DigestGenerator] loadPromptsConfig() completed successfully');
     return promptConfig;
   }
   
