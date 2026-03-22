@@ -1,3 +1,63 @@
+/**
+ * @swagger
+ * /api/papers:
+ *   get:
+ *     summary: Get papers list
+ *     description: Retrieve papers with optional filtering, search, and pagination
+ *     tags:
+ *       - Papers
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search query for title and abstract
+ *       - in: query
+ *         name: sector
+ *         schema:
+ *           type: string
+ *         description: Filter by sector tag
+ *       - in: query
+ *         name: topic
+ *         schema:
+ *           type: string
+ *         description: Filter by topic tag
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: List of papers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 papers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 pageSize:
+ *                   type: integer
+ *       400:
+ *         description: Invalid query parameters
+ *       500:
+ *         description: Server error
+ */
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';

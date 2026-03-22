@@ -1,15 +1,103 @@
-// src/app/api/daily-digest/batch/route.ts
-// Batch generate digests for historical dates with papers
+/**
+ * @swagger
+ * /api/daily-digest/batch:
+ *   get:
+ *     summary: Get dates missing digests
+ *     description: Retrieve all dates that have papers but no corresponding digests
+ *     tags:
+ *       - Daily Digest
+ *     responses:
+ *       200:
+ *         description: List of dates with papers but no digests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 dates:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       dateCode:
+ *                         type: string
+ *                         example: "2026-03-21"
+ *                       paperCount:
+ *                         type: integer
+ *                         example: 13
+ *                 total:
+ *                   type: integer
+ *                   example: 8
+ *       500:
+ *         description: Server error
+ *   post:
+ *     summary: Generate digests for dates
+ *     description: Generate daily digests for specific historical dates
+ *     tags:
+ *       - Daily Digest
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - dateCodes
+ *             properties:
+ *               dateCodes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["2026-03-21", "2026-03-22"]
+ *               maxConcurrent:
+ *                 type: integer
+ *                 description: Maximum concurrent generations (1-5)
+ *                 default: 3
+ *                 example: 3
+ *     responses:
+ *       200:
+ *         description: Batch processing results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 processed:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       dateCode:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                         enum: [success, failed, error, skipped]
+ *                       paperCount:
+ *                         type: integer
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     successful:
+ *                       type: integer
+ *                     failed:
+ *                       type: integer
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Server error
+ */
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { digestEngine } from "@/lib/daily-digest/engine";
 import { getBeijingDateCode, getBeijingDayRange } from "@/lib/timezone-utils";
-
-/**
- * GET /api/daily-digest/batch
- * Get all dates with papers that don't have digests
- */
 export async function GET() {
   try {
     // Find all papers and group by Beijing date
