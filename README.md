@@ -141,7 +141,7 @@ AI-generated metadata flows through to power intelligent features:
 
 ### Export Hub
 ![Export Hub](screenshots/export%20hub-1.png)
-![Export Hub Preview](screenshots/export%20hub-2.png)
+![Export Hub Preview](screenshots/daily%20digest.png)
 *One-click PowerPoint, email digest, and social media exports*
 
 ### Settings
