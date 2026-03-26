@@ -82,9 +82,27 @@ logs/*.log
 
 # Dry-run test scripts
 scripts/dry-run-*.js
+scripts/dry-run-*.ts
+
+# Temporary test scripts
+scripts/test-*.ts
+scripts/debug_*.ts
+scripts/verify-*.ts
+scripts/verify-*.sh
+scripts/*_test_*.md
+
+# Internal documents
+/doc/api-doc-*.html
+/reports/
+
+# Personal scripts
+sync.sh
 
 # Marketing/sales materials
 InsightFlow_*
 
 # Refactor/design reports (internal use)
 refactor/
+
+# Sharing presentations (internal drafts)
+/_sharing/
