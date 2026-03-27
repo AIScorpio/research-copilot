@@ -3,9 +3,9 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 60
-    }
+    "src/app/api/auto-collect/route.ts": { "maxDuration": 180 },
+    "src/app/api/collection/route.ts": { "maxDuration": 180 },
+    "src/app/api/**/*.ts": { "maxDuration": 60 }
   },
   "rewrites": [
     {
