@@ -21,6 +21,17 @@ interface LogEntry {
   timestamp: Date;
 }
 
+interface RunContext {
+  runId: string;
+  agent: string;
+}
+
+let asyncContext: { run: <T>(store: RunContext, fn: () => Promise<T>) => Promise<T>; getStore: () => RunContext | undefined } | null = null;
+try {
+  const asyncHooks: { AsyncLocalStorage: new <T>() => { run: (store: T, fn: () => Promise<any>) => Promise<any>; getStore: () => T | undefined } } = eval('require("async_hooks")');
+  asyncContext = new asyncHooks.AsyncLocalStorage<RunContext>();
+} catch {}
+
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 0,
   warn: 1,
@@ -72,6 +83,22 @@ class Logger {
   private formatTimestamp(date: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${(date.getMilliseconds()).toString().padStart(3, '0')}`;
+  }
+
+  withRunContext<T>(runId: string, agent: string, fn: () => Promise<T>): Promise<T> {
+    if (!asyncContext) return fn();
+    return asyncContext.run({ runId, agent }, fn);
+  }
+
+  getRunContext(): RunContext | undefined {
+    return asyncContext?.getStore();
+  }
+
+  private formatRunPrefix(): string {
+    const ctx = asyncContext?.getStore();
+    if (!ctx) return '';
+    const shortId = ctx.runId.substring(0, 8);
+    return `[run-${shortId}] `;
   }
 
   private sanitizeContext(context?: Record<string, any>): Record<string, any> | undefined {
@@ -136,7 +163,7 @@ class Logger {
       
       const timestamp = this.formatTimestamp(entry.timestamp);
       const contextStr = this.formatContext(entry.context);
-      const logLine = `[${timestamp}] [${entry.level.toUpperCase()}] ${entry.message}${contextStr}\n`;
+      const logLine = `[${timestamp}] [${entry.level.toUpperCase()}] ${this.formatRunPrefix()}${entry.message}${contextStr}\n`;
       
       fs.appendFileSync(filePath, logLine, 'utf-8');
     } catch (e) {
@@ -152,7 +179,7 @@ class Logger {
     const prefix = `[${entry.level.toUpperCase()}] ${timestamp}`;
     const contextStr = this.formatContext(entry.context);
 
-    const output = `${prefix} ${entry.message}${contextStr}`;
+    const output = `${prefix} ${this.formatRunPrefix()}${entry.message}${contextStr}`;
 
     switch (entry.level) {
       case 'error':

@@ -45,6 +45,8 @@ jest.mock('@/lib/logger', () => ({
   logger: {
     info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn(),
     logPaperDetails: jest.fn(), logCollectionSummary: jest.fn(),
+    withRunContext: jest.fn((_: string, __: string, fn: () => any) => fn()),
+    getRunContext: jest.fn(),
   },
 }));
 

@@ -97,6 +97,9 @@ const MODE_DEFAULTS: Record<CollectionMode, Partial<CollectionOptions>> = {
  * Manual mode inherits base conditions from auto mode
  */
 export async function runCollection(options: CollectionOptions): Promise<CollectionResult> {
+    const runId = crypto.randomUUID();
+
+    return logger.withRunContext(runId, 'collection', async () => {
     const startTime = Date.now();
     const errors: string[] = [];
 
@@ -398,6 +401,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
             duration
         };
     }
+    });
 }
 
 /**
