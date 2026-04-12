@@ -239,68 +239,64 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
         
         for (const { result, relevance } of finalResults) {
             try {
-                // Process for tags
                 const processed = await processPaper(result);
                 
-                // Tags from processor (now includes category from LLM)
                 const allTags = processed.suggestedTags;
+                const uniqueTags = [...new Map(allTags.map(t => [t.name, t])).values()].slice(0, 5);
                 
-                // Dimension scores are now already in 1-10 range from content-filter
                 const dimScores = relevance.dimensionScores;
                 const technicalScore = dimScores.technical;
                 const businessScore = dimScores.business;
                 const timelinessScore = dimScores.timeliness;
                 const practicalityScore = dimScores.practicality;
                 
-                // Use relevanceScore from content-filter (already includes bonus if applicable)
                 const normalizedTotal = relevance.relevanceScore;
                 const technicalBonusApplied = relevance.technicalBonusApplied || false;
                 
                 logger.info(`[WEIGHTS] ${result.title.substring(0, 40)}... | Total: ${normalizedTotal.toFixed(2)} | Tech: ${technicalScore} | Biz: ${businessScore} | Time: ${timelinessScore} | Pract: ${practicalityScore} | Bonus: ${technicalBonusApplied ? '1.05x' : 'none'}`);
                 
-                // Infer sourceType from source name
                 const sourceType = await inferSourceTypeFromName(result.source);
                 
-                // Create paper with relevance scores
-                const paper = await prisma.paper.create({
-                    data: {
-                        title: result.title,
-                        abstract: result.abstract,
-                        url: result.url,
-                        source: result.source,
-                        sourceType: sourceType,
-                        publicationDate: result.publicationDate,
-                        collectedAt: new Date(),
-                        relevanceScore: normalizedTotal,
-                        technicalScore: technicalScore,
-                        businessScore: businessScore,
-                        timelinessScore: timelinessScore,
-                        practicalityScore: practicalityScore,
-                        assessmentReason: relevance.reasoning,
-                        technicalBonusApplied: technicalBonusApplied
-                    }
-                });
-                
-                // Link tags
-                for (const tag of allTags.slice(0, 5)) { // Limit to 5 tags
-                    let dbTag = await prisma.tag.findUnique({ where: { name: tag.name } });
+                const paper = await prisma.$transaction(async (tx) => {
+                    const createdPaper = await tx.paper.create({
+                        data: {
+                            title: result.title,
+                            abstract: result.abstract,
+                            url: result.url,
+                            source: result.source,
+                            sourceType: sourceType,
+                            publicationDate: result.publicationDate,
+                            collectedAt: new Date(),
+                            relevanceScore: normalizedTotal,
+                            technicalScore: technicalScore,
+                            businessScore: businessScore,
+                            timelinessScore: timelinessScore,
+                            practicalityScore: practicalityScore,
+                            assessmentReason: relevance.reasoning,
+                            technicalBonusApplied: technicalBonusApplied
+                        }
+                    });
                     
-                    if (!dbTag) {
-                        dbTag = await prisma.tag.create({
-                            data: { 
-                                name: tag.name, 
+                    for (const tag of uniqueTags) {
+                        const dbTag = await tx.tag.upsert({
+                            where: { name: tag.name },
+                            update: {},
+                            create: {
+                                name: tag.name,
                                 category: tag.category || 'uncategorized'
+                            }
+                        });
+                        
+                        await tx.paperTag.create({
+                            data: {
+                                paperId: createdPaper.id,
+                                tagId: dbTag.id
                             }
                         });
                     }
                     
-                    await prisma.paperTag.create({
-                        data: {
-                            paperId: paper.id,
-                            tagId: dbTag.id
-                        }
-                    });
-                }
+                    return createdPaper;
+                });
                 
                 savedPapers.push({
                     id: paper.id,
@@ -309,7 +305,6 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                     relevanceScore: relevance.relevanceScore
                 });
                 
-                // Log paper details
                 logger.logPaperDetails({
                     title: paper.title,
                     relevanceScore: normalizedTotal,
@@ -317,7 +312,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
                     businessScore: businessScore,
                     timelinessScore: timelinessScore,
                     practicalityScore: practicalityScore,
-                    tags: allTags.slice(0, 5).map(t => t.name),
+                    tags: uniqueTags.map(t => t.name),
                     source: result.source
                 });
                 
