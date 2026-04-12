@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, isRedisConfigured } from '@/lib/rate-limit';
 
 // Rate limiting configuration - DISABLED due to missing Redis setup
 const RATE_LIMIT_ENABLED = process.env.RATE_LIMIT_ENABLED === 'true';
+
+// Paths exempt from rate limiting (OAuth callbacks must not be throttled)
+const RATE_LIMIT_EXEMPT_PATHS = ['/api/auth/callback'];
 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = [
@@ -60,7 +63,9 @@ export async function middleware(request: NextRequest) {
 
   // Apply rate limiting only to API routes
   if (pathname.startsWith('/api')) {
-    if (RATE_LIMIT_ENABLED) {
+    const isRateLimitExempt = RATE_LIMIT_EXEMPT_PATHS.some(p => pathname.startsWith(p));
+
+    if (RATE_LIMIT_ENABLED && !isRateLimitExempt) {
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ||
                     request.headers.get('x-real-ip') ||
                     'unknown';
@@ -69,7 +74,7 @@ export async function middleware(request: NextRequest) {
 
       if (!result.allowed) {
         const headers = new Headers();
-        headers.set('Retry-After', Math.ceil((result.reset - Date.now()) / 1000).toString());
+        headers.set('Retry-After', Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)).toString());
         headers.set('X-RateLimit-Limit', result.limit.toString());
         headers.set('X-RateLimit-Remaining', result.remaining.toString());
         headers.set('X-RateLimit-Reset', new Date(result.reset).toISOString());
@@ -80,11 +85,13 @@ export async function middleware(request: NextRequest) {
         );
       }
 
-      const response = NextResponse.next();
-      response.headers.set('X-RateLimit-Limit', result.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', new Date(result.reset).toISOString());
-      return response;
+      if (isRedisConfigured) {
+        const response = NextResponse.next();
+        response.headers.set('X-RateLimit-Limit', result.limit.toString());
+        response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
+        response.headers.set('X-RateLimit-Reset', new Date(result.reset).toISOString());
+        return response;
+      }
     }
   }
 

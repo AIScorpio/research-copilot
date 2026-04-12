@@ -4,7 +4,7 @@ import { Redis } from "@upstash/redis";
 // Check if Redis is configured
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-const isRedisConfigured = redisUrl && redisToken;
+export const isRedisConfigured = !!(redisUrl && redisToken);
 
 // Only create rate limiter if Redis is configured
 const ratelimit = isRedisConfigured 
