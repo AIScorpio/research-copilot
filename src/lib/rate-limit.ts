@@ -35,13 +35,22 @@ export async function rateLimit(identifier: string) {
     };
   }
 
-  const { success, limit, remaining, reset } = await limiter.limit(identifier);
-  
-  if (!success) {
-    return { allowed: false, limit, remaining, reset };
+  try {
+    const { success, limit, remaining, reset } = await limiter.limit(identifier);
+    
+    if (!success) {
+      return { allowed: false, limit, remaining, reset };
+    }
+    
+    return { allowed: true, limit, remaining, reset };
+  } catch {
+    return {
+      allowed: true,
+      limit: 100,
+      remaining: 100,
+      reset: Date.now() + 60000
+    };
   }
-  
-  return { allowed: true, limit, remaining, reset };
 }
 
 export async function getRateLimitHeaders(identifier: string) {
