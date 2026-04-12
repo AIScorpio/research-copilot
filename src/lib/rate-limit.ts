@@ -1,19 +1,20 @@
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 export const isRedisConfigured = !!(redisUrl && redisToken);
 
-let ratelimit: any = null;
-let ratelimitInitialized = false;
+let ratelimit: InstanceType<typeof Ratelimit> | null = null;
+let initAttempted = false;
 
-function getRatelimit(): any {
-  if (ratelimitInitialized) return ratelimit;
-  ratelimitInitialized = true;
+function getRatelimit(): InstanceType<typeof Ratelimit> | null {
+  if (initAttempted) return ratelimit;
+  initAttempted = true;
 
   if (!isRedisConfigured) return null;
 
   try {
-    const { Ratelimit } = eval('require("@upstash/ratelimit")');
-    const { Redis } = eval('require("@upstash/redis")');
     ratelimit = new Ratelimit({
       redis: Redis.fromEnv(),
       limiter: Ratelimit.slidingWindow(100, "1 m"),
