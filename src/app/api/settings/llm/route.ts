@@ -22,7 +22,7 @@ import { logger } from '@/lib/logger';
 
 // Validation schema for LLM configuration
 const LLMConfigSchema = z.object({
-    provider: z.enum(['groq', 'openai', 'anthropic', 'ollama', 'lmstudio']),
+    provider: z.enum(['groq', 'openai', 'anthropic', 'ollama', 'lmstudio', 'gemini']),
     apiKey: z.string().optional(),
     baseUrl: z.string().url().optional(),
     model: z.string().optional(),
@@ -52,6 +52,8 @@ function getApiKeyForProvider(provider: LLMProvider): string | undefined {
             return process.env.OPENAI_API_KEY;
         case 'anthropic':
             return process.env.ANTHROPIC_API_KEY;
+        case 'gemini':
+            return process.env.GEMINI_API_KEY;
         default:
             return undefined;
     }
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
         const config = validationResult.data;
         
         // Validate API key for cloud providers
-        if (['groq', 'openai', 'anthropic'].includes(config.provider)) {
+        if (['groq', 'openai', 'anthropic', 'gemini'].includes(config.provider)) {
             if (!config.apiKey || config.apiKey.length < 10) {
                 return NextResponse.json({
                     success: false,
@@ -172,6 +174,10 @@ export async function POST(request: Request) {
                     case 'anthropic':
                         apiKeyName = 'ANTHROPIC_API_KEY';
                         process.env.ANTHROPIC_API_KEY = config.apiKey;
+                        break;
+                    case 'gemini':
+                        apiKeyName = 'GEMINI_API_KEY';
+                        process.env.GEMINI_API_KEY = config.apiKey;
                         break;
                     default:
                         apiKeyName = '';

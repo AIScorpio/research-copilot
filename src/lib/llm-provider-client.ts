@@ -56,6 +56,12 @@ const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
         envKey: null,
         bodyFormat: 'ollama',
         requiresAuth: false
+    },
+    gemini: {
+        apiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        envKey: 'GEMINI_API_KEY',
+        bodyFormat: 'openai',
+        requiresAuth: true
     }
 };
 

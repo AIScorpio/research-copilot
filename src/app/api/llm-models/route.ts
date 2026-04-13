@@ -79,11 +79,17 @@ export async function GET() {
             try {
                 let config: FetchModelsConfig | undefined = undefined;
 
-                // Local providers need base URL from config
                 if (providerType === 'ollama' || providerType === 'lmstudio') {
                     const baseUrl = getBaseUrlForProvider(providerType);
                     if (baseUrl) {
                         config = { baseUrl };
+                    }
+                } else {
+                    const providerRecord = await prisma.lLMProviderBase.findFirst({
+                        where: { type: providerType }
+                    });
+                    if (providerRecord) {
+                        config = { providerId: providerRecord.id };
                     }
                 }
 

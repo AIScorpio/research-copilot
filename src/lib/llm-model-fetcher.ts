@@ -151,6 +151,81 @@ export async function fetchOllamaModels(config: FetchModelsConfig): Promise<LLMM
     }
 }
 
+export async function fetchLMStudioModels(config: FetchModelsConfig): Promise<LLMModelInfo[]> {
+    const baseUrl = config.baseUrl || 'http://localhost:1234';
+
+    try {
+        const response = await fetch(`${baseUrl}/v1/models`);
+
+        if (!response.ok) {
+            logger.error('[ModelFetcher] LM Studio API error', { status: response.status });
+            return [];
+        }
+
+        const data = await response.json();
+        const models: LLMModelInfo[] = (data.data || []).map((m: any) => ({
+            externalId: m.id,
+            name: m.id,
+            contextWindow: m.context_length || 4096,
+            capabilities: ['chat']
+        }));
+
+        logger.info(`[ModelFetcher] Fetched ${models.length} LM Studio models`);
+
+        return models;
+    } catch (error) {
+        logger.error('[ModelFetcher] Failed to fetch LM Studio models', { error });
+        return [];
+    }
+}
+
+export async function fetchGeminiModels(config?: FetchModelsConfig): Promise<LLMModelInfo[]> {
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+        logger.warn('[ModelFetcher] GEMINI_API_KEY not configured');
+        return [];
+    }
+
+    try {
+        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/models', {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            logger.error('[ModelFetcher] Gemini API error', { status: response.status });
+            return [];
+        }
+
+        const data = await response.json();
+        const models: LLMModelInfo[] = (data.data || [])
+            .filter((m: any) => m.id.includes('gemini-') || m.id.includes('gemma-'))
+            .map((m: any) => {
+                const strippedId = m.id.replace(/^models\//, '');
+                return {
+                    externalId: strippedId,
+                    name: m.display_name || strippedId,
+                    contextWindow: m.context_window || 1000000,
+                    capabilities: ['chat']
+                };
+            });
+
+        logger.info(`[ModelFetcher] Fetched ${models.length} Gemini models`);
+
+        if (config?.providerId) {
+            await updateModelsInDB(config.providerId, models);
+        }
+
+        return models;
+    } catch (error) {
+        logger.error('[ModelFetcher] Failed to fetch Gemini models', { error });
+        return [];
+    }
+}
+
 /**
  * Main entry point - fetch models for a specific provider type
  *
@@ -169,6 +244,10 @@ export async function fetchAvailableModels(
             return fetchZhipuModels(config);
         case 'ollama':
             return fetchOllamaModels(config || {});
+        case 'lmstudio':
+            return fetchLMStudioModels(config || {});
+        case 'gemini':
+            return fetchGeminiModels(config);
         default:
             logger.warn(`[ModelFetcher] Unknown provider type: ${providerType}`);
             return [];

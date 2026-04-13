@@ -48,6 +48,7 @@ export function LLMProviderManager() {
     const [isLoading, setIsLoading] = useState(true);
     const [ollamaModels, setOllamaModels] = useState<Record<string, any[]>>({});
     const [groqModels, setGroqModels] = useState<Record<string, any[]>>({});
+    const [lmstudioModels, setLmstudioModels] = useState<Record<string, any[]>>({});
     const { addToast } = useToast();
 
     // Fetch Ollama models dynamically when Ollama configs are present
@@ -105,6 +106,33 @@ export function LLMProviderManager() {
             fetchGroqModels();
         }
     }, [configs]);
+
+    useEffect(() => {
+        const fetchLmstudioModels = async () => {
+            const lmstudioConfigs = configs.filter(c => c.provider.type === 'lmstudio');
+
+            for (const config of lmstudioConfigs) {
+                try {
+                    const baseUrl = config.baseUrl || availableProviders.find(p => p.type === 'lmstudio')?.baseUrl || 'http://localhost:1234';
+                    const response = await fetch(`/api/llm-providers/lmstudio-models?baseUrl=${encodeURIComponent(baseUrl)}`);
+                    const data = await response.json();
+
+                    if (data.success && data.models.length > 0) {
+                        setLmstudioModels(prev => ({
+                            ...prev,
+                            [config.id]: data.models
+                        }));
+                    }
+                } catch (error) {
+                    logger.error('Failed to fetch LM Studio models:', { error: error instanceof Error ? error.message : String(error) });
+                }
+            }
+        };
+
+        if (configs.length > 0) {
+            fetchLmstudioModels();
+        }
+    }, [configs, availableProviders]);
 
     useEffect(() => {
         fetchProviders();
@@ -286,6 +314,12 @@ export function LLMProviderManager() {
                                     name: m.name, 
                                     externalId: m.externalId 
                                 }));
+                        } else if (config.provider.type === 'lmstudio' && lmstudioModels[config.id]) {
+                            dynamicModels = lmstudioModels[config.id].map(m => ({
+                                id: m.externalId,
+                                name: m.name,
+                                externalId: m.externalId
+                            }));
                         } else {
                             dynamicModels = availableProviders.find(p => p.type === config.provider.type)?.models || [];
                         }
