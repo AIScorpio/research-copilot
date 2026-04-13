@@ -1,112 +1,141 @@
 import { prisma } from '@/lib/db';
-import Groq from 'groq-sdk';
-import { logger } from './logger';
+import { logger } from '@/lib/logger';
 
-export interface ChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
+export interface PaperContextInfo {
+    markdown: string;
+    paperCount: number;
+    dateRange: string;
 }
 
-interface PaperTag {
-    tag: {
-        name: string;
-    };
-}
-
-interface Paper {
+export interface SourcePaper {
     id: string;
     title: string;
-    abstract: string | null;
-    source: string;
-    publicationDate: Date;
-    tags?: PaperTag[];
+    url: string;
+    relevanceScore: number | null;
+    publicationDate: string | null;
+    tags: string[];
 }
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-
-export async function retrieveContext(query: string) {
-    // Simple keyword search for RAG context
-    // In a real production app, this would use vector embeddings (pgvector/pinecone)
-    const keywords = query.toLowerCase().split(" ").filter(k => k.length > 3);
-
-    if (keywords.length === 0) return [];
-
+export async function loadPaperCorpus(mode: 'full' | 'compact'): Promise<PaperContextInfo> {
     const papers = await prisma.paper.findMany({
-        where: {
-            OR: keywords.map(k => ({
-                OR: [
-                    { title: { contains: k, mode: 'insensitive' } },
-                    { abstract: { contains: k, mode: 'insensitive' } }
-                ]
-            }))
-        },
-        include: {
-            tags: {
-                include: { tag: true }
-            }
-        },
-        take: 5 // Limit context window
+        where: { deletedAt: null },
+        include: { tags: { include: { tag: true } } },
+        orderBy: { relevanceScore: 'desc' },
     });
 
-    return papers;
-}
-
-export async function generateResponse(query: string, contextPapers: Paper[]): Promise<string> {
-    if (contextPapers.length === 0) {
-        return "I couldn't find any papers in your repository matching that query. Try running a collection for relevant topics first, or ask me something broader.";
+    if (papers.length === 0) {
+        return { markdown: '', paperCount: 0, dateRange: 'N/A' };
     }
 
-    // Build context from papers
-    const paperContext = contextPapers.map((p: Paper, idx: number) => {
-        const tags = p.tags?.map((pt: PaperTag) => pt.tag.name).join(', ') || 'No tags';
-        return `[Paper ${idx + 1}]\nTitle: ${p.title}\nTags: ${tags}\nAbstract: ${p.abstract || 'No abstract available'}\nSource: ${p.source}\nPublication Date: ${new Date(p.publicationDate).toLocaleDateString()}\n---`;
-    }).join('\n\n');
+    const dates = papers.map(p => p.publicationDate || p.collectedAt).filter(Boolean) as Date[];
+    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    const dateRange = `${minDate.toISOString().split('T')[0]} to ${maxDate.toISOString().split('T')[0]}`;
 
-    // Use LLM if API key available, otherwise use fallback
-    if (GROQ_API_KEY) {
-        try {
-            const groq = new Groq({ apiKey: GROQ_API_KEY });
+    const sections = papers.map((p, i) => {
+        const tags = p.tags.map(pt => pt.tag.name).join(', ');
+        const scores = `R:${p.relevanceScore?.toFixed(1) ?? '-'} T:${p.technicalScore?.toFixed(1) ?? '-'} B:${p.businessScore?.toFixed(1) ?? '-'} Ti:${p.timelinessScore?.toFixed(1) ?? '-'} P:${p.practicalityScore?.toFixed(1) ?? '-'}`;
+        const pubDate = p.publicationDate ? p.publicationDate.toISOString().split('T')[0] : '';
+        const collDate = p.collectedAt.toISOString().split('T')[0];
+        const assessment = p.assessmentReason || '';
 
-            const completion = await groq.chat.completions.create({
-                messages: [
-                    {
-                        role: 'system',
-                        content: `You are a research assistant helping analyze a collection of academic papers. Answer questions based ONLY on the provided paper context. Be specific, cite paper titles, and provide detailed explanations. If asked for examples or deep dives, quote relevant sections from abstracts.`
-                    },
-                    {
-                        role: 'user',
-                        content: `Context (Papers in Repository):
-${paperContext}
-
-User Question: ${query}
-
-Please provide a detailed, specific answer based on these papers. If asked for examples, cite specific papers and their content.`
-                    }
-                ],
-                model: 'llama-3.3-70b-versatile',
-                temperature: 0.1,
-                max_tokens: 1000,
-            });
-
-            return completion.choices[0]?.message?.content || 'Unable to generate response';
-        } catch (error) {
-            logger.error('RAG Groq error', { error });
-            return generateFallbackResponse(query, contextPapers);
+        let section = `## Paper ${i + 1} | ${scores} | ${pubDate}\n`;
+        section += `**Title:** ${p.title}\n`;
+        section += `**Tags:** ${tags}\n`;
+        section += `**Source:** ${p.source || 'unknown'} | **Collected:** ${collDate}\n`;
+        section += `**URL:** ${p.url}\n`;
+        if (assessment) {
+            section += `**Why collected:** ${assessment}\n`;
         }
-    } else {
-        return generateFallbackResponse(query, contextPapers);
-    }
+        if (mode === 'full' && p.abstract) {
+            section += `**Abstract:** ${p.abstract}\n`;
+        }
+        return section;
+    });
+
+    const markdown = sections.join('---\n');
+    logger.info(`[RAG] Loaded ${papers.length} papers in ${mode} mode`);
+
+    return { markdown, paperCount: papers.length, dateRange };
 }
 
-function generateFallbackResponse(query: string, contextPapers: Paper[]): string {
-    const titles = contextPapers.map((p: Paper) => `"${p.title}"`).join(', ');
-    const lowerQuery = query.toLowerCase();
+export function buildSystemPrompt(corpusInfo: PaperContextInfo): string {
+    const focusAreas = 'risk-management, compliance, fraud-detection, credit-assessment, model-governance';
 
-    if (lowerQuery.includes('summary') || lowerQuery.includes('summarize')) {
-        return `**Summary of Found Papers:**\n\n${contextPapers.slice(0, 3).map((p: Paper, i: number) =>
-            `${i + 1}. **${p.title}**\n   ${p.abstract?.substring(0, 200)}...\n`
-        ).join('\n')}`;
+    if (corpusInfo.paperCount === 0) {
+        return `You are a research intelligence assistant for a banking/financial services AI research team.
+The paper repository is currently empty. Inform the user and suggest running a collection.
+The organization's research focus areas are: ${focusAreas}.`;
     }
 
-    return `I found ${contextPapers.length} relevant papers: ${titles}.\n\n**Note:** For detailed analysis, please add a Groq API key to .env (GROQ_API_KEY). Currently using basic fallback mode.`;
+    return `You are a research intelligence assistant for a banking/financial services AI research team.
+You have access to a curated collection of ${corpusInfo.paperCount} academic papers (collected ${corpusInfo.dateRange}).
+Below is the COMPLETE paper repository — you can see every paper.
+
+CAPABILITIES:
+- Answer questions about ANY paper in the collection
+- Cross-reference and compare multiple papers
+- Synthesize trends across the corpus
+- Identify gaps and contradictions
+- Recommend papers based on specific criteria
+
+RULES:
+1. Every factual claim must be traced to a specific paper
+2. Always cite papers as: **[Title](url)** — relevance: X.X/10 — YYYY-MM-DD
+3. Start every answer with "Based on ${corpusInfo.paperCount} papers in the repository"
+4. If abstracts lack specific details, say so — do not infer
+5. Never fabricate paper titles, scores, or findings
+6. If a query returns 0 results, say "No papers found" and suggest what to collect
+7. Keep responses under 800 tokens unless the user asks for detail
+8. Group papers by theme when returning 3+ papers
+9. For executive/leadership context: use plain language, avoid unexplained jargon
+10. End every response with 2-3 suggested follow-up questions. Format:
+---
+**Suggested questions:**
+1. [question]
+2. [question]
+3. [question]
+
+The organization's research focus areas are: ${focusAreas}.
+
+PAPER CORPUS (${corpusInfo.paperCount} papers):
+${corpusInfo.markdown}`;
+}
+
+export async function extractSources(responseContent: string): Promise<SourcePaper[]> {
+    const urlPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    const matches: Array<{ title: string; url: string }> = [];
+    let match;
+
+    while ((match = urlPattern.exec(responseContent)) !== null) {
+        matches.push({ title: match[1], url: match[2] });
+    }
+
+    if (matches.length === 0) return [];
+
+    const urls = [...new Set(matches.map(m => m.url))];
+    const papers = await prisma.paper.findMany({
+        where: { url: { in: urls }, deletedAt: null },
+        include: { tags: { include: { tag: true } } },
+    });
+
+    const urlToPaper = new Map(papers.map(p => [p.url, p]));
+
+    return matches
+        .filter(m => urlToPaper.has(m.url))
+        .map(m => {
+            const p = urlToPaper.get(m.url)!;
+            return {
+                id: p.id,
+                title: p.title,
+                url: p.url,
+                relevanceScore: p.relevanceScore,
+                publicationDate: p.publicationDate?.toISOString().split('T')[0] || null,
+                tags: p.tags.map(pt => pt.tag.name),
+            };
+        });
+}
+
+export function getContextMode(contextWindow: number): 'full' | 'compact' {
+    return contextWindow >= 256000 ? 'full' : 'compact';
 }
