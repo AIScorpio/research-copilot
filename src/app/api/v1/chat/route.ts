@@ -7,7 +7,6 @@ import { loadPaperCorpus, buildSystemPrompt, extractSources, getContextMode } fr
 import { withApiKeyOrSession, AuthIdentity } from '@/lib/api-auth';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
-import { prisma } from '@/lib/db';
 
 const V1ChatRequestSchema = z.object({
     question: z.string().min(1).max(2000),
