@@ -37,15 +37,19 @@ async function POST(request: NextRequest) {
     return withApiKeyOrSession(async (request: NextRequest, identity: AuthIdentity) => {
         const limiter = await getRateLimiter();
         if (limiter) {
-            const identifier = identity.type === 'api_key'
-                ? `apikey:${identity.name}`
-                : `session:${identity.userId}`;
-            const { success } = await limiter.limit(identifier);
-            if (!success) {
-                return new Response(
-                    JSON.stringify({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests. Try again later.' } }),
-                    { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } }
-                );
+            try {
+                const identifier = identity.type === 'api_key'
+                    ? `apikey:${identity.name}`
+                    : `session:${identity.userId}`;
+                const { success } = await limiter.limit(identifier);
+                if (!success) {
+                    return new Response(
+                        JSON.stringify({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests. Try again later.' } }),
+                        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } }
+                    );
+                }
+            } catch {
+                logger.warn('[V1Chat] Rate limiter unavailable, skipping rate limit');
             }
         }
 
