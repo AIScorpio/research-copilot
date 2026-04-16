@@ -197,6 +197,7 @@ export async function GET() {
             configs: configs.map(config => ({
                 id: config.id,
                 name: config.name,
+                baseUrl: config.baseUrl || undefined,
                 provider: config.provider,
                 status: config.status,
                 priority: config.priority,

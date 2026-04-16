@@ -12,6 +12,7 @@ import { Plus, Loader2 } from 'lucide-react';
 interface LLMProvider {
     id: string;
     name: string;
+    baseUrl?: string;
     provider: {
         type: string;
         name: string;
