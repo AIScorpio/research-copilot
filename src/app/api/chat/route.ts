@@ -19,7 +19,7 @@ const ChatRequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-    return withAuth(async (request: NextRequest, user: any) => {
+    return withAuth(async (request: Request, user: any) => {
         const body = await request.json();
         const parsed = ChatRequestSchema.safeParse(body);
         if (!parsed.success) {
