@@ -8,5 +8,6 @@ export interface PromptTemplates {
     contentAssessment: string;
     summaryGeneration: string;
     tagSuggestion: string;
-    digestGeneration: string;  // Simple string like other prompts
+    digestGeneration: string;
+    chatSystemPrompt: string;
 }

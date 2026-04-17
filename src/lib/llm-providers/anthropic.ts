@@ -2,6 +2,7 @@ import { logger } from '../logger';
 import { BaseProvider } from '../llm-base-provider';
 import { LLMConfig } from '../llm-types';
 import { DEFAULT_MODELS } from '../llm-types';
+import { parseAnthropicStream } from './streaming/anthropic-stream-parser';
 
 export class AnthropicProvider extends BaseProvider {
     private apiKey: string;
@@ -66,6 +67,33 @@ export class AnthropicProvider extends BaseProvider {
 
         const data = await response.json();
         return data.content?.[0]?.text?.trim() || '';
+    }
+
+    async *chatStream(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): AsyncGenerator<{ type: 'token' | 'done' | 'error' | 'thinking'; content: string }, void, unknown> {
+        const systemMsg = messages.find(m => m.role === 'system');
+        const nonSystem = messages.filter(m => m.role !== 'system');
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'x-api-key': this.apiKey,
+                'anthropic-version': '2023-06-01',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: this.config.model || DEFAULT_MODELS.anthropic,
+                system: systemMsg?.content,
+                messages: nonSystem,
+                max_tokens: this.config.maxTokens || 4096,
+                stream: true,
+            }),
+        });
+        if (!response.ok) {
+            const error = await response.text().catch(() => `HTTP ${response.status}`);
+            yield { type: 'error' as const, content: `${this.getProviderName()} API error: ${error}` };
+            return;
+        }
+        yield* parseAnthropicStream(response);
     }
 
     async testConnection(): Promise<boolean> {

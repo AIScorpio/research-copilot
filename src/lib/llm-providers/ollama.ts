@@ -2,6 +2,7 @@ import { logger } from '../logger';
 import { BaseProvider } from '../llm-base-provider';
 import { LLMConfig } from '../llm-types';
 import { DEFAULT_MODELS, DEFAULT_BASE_URLS } from '../llm-types';
+import { parseOllamaStream } from './streaming/ollama-stream-parser';
 
 export class OllamaProvider extends BaseProvider {
     private baseUrl: string;
@@ -55,6 +56,26 @@ export class OllamaProvider extends BaseProvider {
 
         const data = await response.json();
         return data.response?.trim() || '';
+    }
+
+    async *chatStream(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): AsyncGenerator<{ type: 'token' | 'done' | 'error' | 'thinking'; content: string }, void, unknown> {
+        const prompt = messages.map(m => `[${m.role.toUpperCase()}]\n${m.content}`).join('\n\n');
+
+        const response = await fetch(`${this.baseUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: this.config.model || DEFAULT_MODELS.ollama,
+                prompt,
+                stream: true,
+            }),
+        });
+        if (!response.ok) {
+            const error = await response.text().catch(() => `HTTP ${response.status}`);
+            yield { type: 'error' as const, content: `${this.getProviderName()} API error: ${error}` };
+            return;
+        }
+        yield* parseOllamaStream(response);
     }
 
     async testConnection(): Promise<boolean> {

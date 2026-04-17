@@ -22,17 +22,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-} from "@/components/ui/sheet"
-import {
     Bot,
     Send,
     User,
     Plus,
     MessageSquare,
+    X,
     ChevronDown,
     MoreHorizontal,
     Pencil,
@@ -42,6 +37,8 @@ import {
     ChevronRight,
     Loader2,
     Sparkles,
+    Square,
+    Brain,
 } from "lucide-react"
 import { marked } from "marked"
 import DOMPurify from "dompurify"
@@ -51,6 +48,8 @@ interface Message {
     content: string
     sources?: Source[]
     suggestions?: string[]
+    isStreaming?: boolean
+    thinking?: string
 }
 
 interface Source {
@@ -75,6 +74,9 @@ interface ChatSession {
     title: string
     messages: Message[]
     model?: ModelOption
+    messageCount?: number
+    lastMessageAt?: string
+    createdAt?: string
 }
 
 const DEFAULT_WELCOME = "Hello! I'm your research intelligence assistant for banking/financial services AI research. I can help you analyze trends, compare papers, identify gaps, and provide insights across risk management, compliance, fraud detection, credit assessment, and model governance.\n\nWhat specific research questions or topics would you like to explore today?"
@@ -90,8 +92,16 @@ function renderMarkdown(text: string): string {
 
 function stripSuggestionsFromContent(content: string): string {
     return content
-        .replace(/\*\*Suggested questions:\*\*\n[\s\S]*?(?:\n---|$)/, "")
+        .replace(/\*{0,2}Suggested (?:questions|follow-ups?):\*{0,2}\s*\n[\s\S]*$/, "")
         .trim()
+}
+
+function parseSuggestionsFromContent(content: string): string[] | undefined {
+    const match = content.match(/\*{0,2}Suggested (?:questions|follow-ups?):\*{0,2}\s*\n([\s\S]*?)$/i);
+    if (!match) return undefined;
+    const lines = match[1].trim().match(/\d+\.\s+(.+)/g);
+    if (!lines || lines.length === 0) return undefined;
+    return lines.map(s => s.replace(/^\d+\.\s+/, ''));
 }
 
 function ModelSelector({
@@ -185,7 +195,15 @@ function MarkdownContent({ content }: { content: string }) {
 
 function AssistantMessage({ message, onSuggestionClick }: { message: Message; onSuggestionClick: (s: string) => void }) {
     const [sourcesOpen, setSourcesOpen] = useState(false)
+    const [thinkingOpen, setThinkingOpen] = useState(false)
+    const thinkingRef = useRef<HTMLDivElement>(null)
     const displayContent = stripSuggestionsFromContent(message.content)
+
+    useEffect(() => {
+        if (thinkingOpen && thinkingRef.current) {
+            thinkingRef.current.scrollTop = thinkingRef.current.scrollHeight
+        }
+    }, [message.thinking, thinkingOpen])
 
     return (
         <div className="space-y-3">
@@ -194,11 +212,34 @@ function AssistantMessage({ message, onSuggestionClick }: { message: Message; on
                     <Bot className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1 space-y-3">
-                    <div className="rounded-lg bg-muted px-4 py-2 text-sm">
-                        <MarkdownContent content={displayContent} />
-                    </div>
+                    {message.thinking && (
+                        <div className="rounded-lg border border-border/50 bg-muted/30">
+                            <button
+                                onClick={() => setThinkingOpen(!thinkingOpen)}
+                                className="flex items-center gap-1.5 w-full px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <Brain className="h-3.5 w-3.5 shrink-0" />
+                                <span>Thinking{message.isStreaming ? '...' : ''}</span>
+                                <ChevronDown className={`h-3 w-3 ml-auto transition-transform ${thinkingOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {thinkingOpen && (
+                                <div ref={thinkingRef} className="max-h-40 overflow-y-auto px-3 pb-2">
+                                    <pre className="text-xs text-muted-foreground/70 whitespace-pre-wrap font-mono leading-relaxed">{message.thinking}</pre>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
-                    {message.sources && message.sources.length > 0 && (
+                    {(displayContent || message.isStreaming) && (
+                        <div className="rounded-lg bg-muted px-4 py-2 text-sm">
+                            <MarkdownContent content={displayContent} />
+                            {message.isStreaming && (
+                                <span className="inline-block w-2 h-4 ml-0.5 bg-foreground/60 animate-pulse rounded-sm" />
+                            )}
+                        </div>
+                    )}
+
+                    {!message.isStreaming && message.sources && message.sources.length > 0 && (
                         <div className="space-y-1.5">
                             <button
                                 onClick={() => setSourcesOpen(!sourcesOpen)}
@@ -211,7 +252,7 @@ function AssistantMessage({ message, onSuggestionClick }: { message: Message; on
                             </button>
                             {sourcesOpen && (
                                 <div className="grid gap-2 sm:grid-cols-2">
-                                    {message.sources.map((s) => (
+                                    {[...new Map(message.sources.map(s => [s.id, s])).values()].map((s) => (
                                         <SourceCard key={s.id} source={s} />
                                     ))}
                                 </div>
@@ -219,7 +260,7 @@ function AssistantMessage({ message, onSuggestionClick }: { message: Message; on
                         </div>
                     )}
 
-                    {message.suggestions && message.suggestions.length > 0 && (
+                    {!message.isStreaming && message.suggestions && message.suggestions.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                             {message.suggestions.map((s, i) => (
                                 <button
@@ -299,42 +340,23 @@ function SessionItem({
                     onClick={(e) => e.stopPropagation()}
                 />
             ) : (
-                <>
-                    <MessageSquare className="h-4 w-4 shrink-0" />
-                    <span className="flex-1 truncate">{session.title}</span>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-background"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
-                            <DropdownMenuItem
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    setIsEditing(true)
-                                }}
-                            >
-                                <Pencil className="h-3.5 w-3.5" />
-                                Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                variant="destructive"
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    onDelete()
-                                }}
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </>
+                <div className="flex flex-col gap-0.5 w-full">
+                    <span className="truncate min-w-0 text-xs">{session.title}</span>
+                    <div className="flex gap-2 shrink-0">
+                        <span
+                            className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); setIsEditing(true) }}
+                        >
+                            rename
+                        </span>
+                        <span
+                            className="text-[10px] text-destructive hover:underline cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); onDelete() }}
+                        >
+                            delete
+                        </span>
+                    </div>
+                </div>
             )}
         </div>
     )
@@ -351,6 +373,9 @@ export default function ChatPage() {
     const [paperCount, setPaperCount] = useState<number | null>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const scrollViewportRef = useRef<HTMLDivElement>(null)
+    const loadAbortRef = useRef<AbortController | null>(null)
+    const streamAbortRef = useRef<AbortController | null>(null)
+    const isStreamingRef = useRef(false)
 
     const activeSession = useMemo(
         () => sessions.find((s) => s.id === activeSessionId) || null,
@@ -409,25 +434,78 @@ export default function ChatPage() {
     }, [])
 
     useEffect(() => {
-        if (paperCount === null) return
-        if (activeSessionId) return
-        const content = `Hello! I'm your research intelligence assistant for banking/financial services AI research. Currently there are ${paperCount} papers in the repository. I can help you analyze trends, compare papers, identify gaps, and provide insights across risk management, compliance, fraud detection, credit assessment, and model governance.\n\nWhat specific research questions or topics would you like to explore today?`
-        const newSession: ChatSession = {
-            id: crypto.randomUUID(),
-            title: "New Chat",
-            messages: [{
-                role: "assistant",
-                content,
-                suggestions: [
-                    "What are the latest trends in AI-powered credit risk assessment?",
-                    "How are banks using large language models for compliance automation?",
-                    "Summarize recent advances in fraud detection using graph neural networks",
-                ],
-            }],
+        if (models.length === 0 || !activeSessionId) return
+        const activeSession = sessions.find((s) => s.id === activeSessionId)
+        if (!activeSession?.model) return
+        const match = models.find(
+            (m) => m.providerType === activeSession.model!.providerType && m.externalId === activeSession.model!.externalId
+        )
+        if (match && match.value !== selectedModel?.value) {
+            setSelectedModel(match)
         }
-        setSessions([newSession])
-        setActiveSessionId(newSession.id)
-    }, [paperCount, activeSessionId])
+    }, [models, sessions, activeSessionId])
+
+    const loadSessions = useCallback(async () => {
+        try {
+            const res = await fetch("/api/chat/sessions?limit=50")
+            const data = await res.json()
+            if (data.sessions) {
+                const loaded: ChatSession[] = data.sessions.map((s: any) => ({
+                    id: s.id,
+                    title: s.title,
+                    model: s.model || undefined,
+                    messageCount: s.messageCount,
+                    lastMessageAt: s.lastMessageAt,
+                    createdAt: s.createdAt,
+                    messages: [],
+                }))
+
+                setSessions((prev) => {
+                    const loadedIds = new Set(loaded.map(s => s.id))
+                    const localOnly = prev.filter(s => !loadedIds.has(s.id) && s.messages.length > 0)
+                    if (localOnly.length > 0) {
+                        console.warn('[ChatPage] Preserving', localOnly.length, 'local session(s) not yet on server')
+                    }
+                    return [...localOnly, ...loaded]
+                })
+                return loaded
+            }
+        } catch {
+        }
+        return []
+    }, [])
+
+    const loadSessionMessages = useCallback(async (sessionId: string) => {
+        if (loadAbortRef.current) {
+            loadAbortRef.current.abort()
+        }
+        const controller = new AbortController()
+        loadAbortRef.current = controller
+
+        try {
+            const res = await fetch(`/api/chat/sessions/${sessionId}`, { signal: controller.signal })
+            if (!res.ok) return
+            const data = await res.json()
+            if (controller.signal.aborted) return
+
+            const dbMessages: Message[] = (data.messages || []).map((m: any) => ({
+                role: m.role,
+                content: m.content,
+                sources: m.sources || undefined,
+                suggestions: m.role === 'assistant' ? parseSuggestionsFromContent(m.content) : undefined,
+            }))
+
+            setSessions((prev) =>
+                prev.map((s) =>
+                    s.id === sessionId ? { ...s, messages: dbMessages } : s
+                )
+            )
+        } catch (err: any) {
+            if (err.name !== 'AbortError') {
+                console.error('Failed to load session messages', err)
+            }
+        }
+    }, [])
 
     const welcomeContent = useMemo(() => {
         if (paperCount != null) {
@@ -440,13 +518,53 @@ export default function ChatPage() {
         const newSession: ChatSession = {
             id: crypto.randomUUID(),
             title: "New Chat",
-            messages: [{ role: "assistant", content: welcomeContent }],
+            messages: [{
+                role: "assistant",
+                content: welcomeContent,
+                suggestions: [
+                    "What are the latest trends in AI-powered credit risk assessment?",
+                    "How are banks using large language models for compliance automation?",
+                    "Summarize recent advances in fraud detection using graph neural networks",
+                ],
+            }],
         }
         setSessions((prev) => [newSession, ...prev])
         setActiveSessionId(newSession.id)
         setSidebarOpen(false)
         return newSession.id
     }, [welcomeContent])
+
+    useEffect(() => {
+        if (paperCount === null) return
+        if (activeSessionId) return
+        if (isStreamingRef.current) {
+            console.warn('[ChatPage] Skipping session reload — streaming in progress')
+            return
+        }
+
+        loadSessions().then((loaded) => {
+            if (loaded.length > 0) {
+                setActiveSessionId(loaded[0].id)
+                loadSessionMessages(loaded[0].id)
+            } else {
+                const newSession: ChatSession = {
+                    id: crypto.randomUUID(),
+                    title: "New Chat",
+                    messages: [{
+                        role: "assistant",
+                        content: welcomeContent,
+                        suggestions: [
+                            "What are the latest trends in AI-powered credit risk assessment?",
+                            "How are banks using large language models for compliance automation?",
+                            "Summarize recent advances in fraud detection using graph neural networks",
+                        ],
+                    }],
+                }
+                setSessions([newSession])
+                setActiveSessionId(newSession.id)
+            }
+        })
+    }, [paperCount, activeSessionId, loadSessions, loadSessionMessages, welcomeContent])
 
     const handleSend = useCallback(
         async (overrideInput?: string) => {
@@ -476,6 +594,16 @@ export default function ChatPage() {
             )
             setInput("")
             setIsLoading(true)
+            isStreamingRef.current = true
+
+            const streamingMsg: Message = { role: "assistant", content: "", isStreaming: true }
+            setSessions((prev) =>
+                prev.map((s) =>
+                    s.id === sessionId
+                        ? { ...s, messages: [...s.messages, streamingMsg] }
+                        : s
+                )
+            )
 
             try {
                 const session = sessions.find((s) => s.id === sessionId)
@@ -486,8 +614,14 @@ export default function ChatPage() {
                     { role: "user" as const, content: text },
                 ]
 
+                const activeSess = sessions.find(s => s.id === sessionId)
+                const isServerSession = activeSess && activeSess.messageCount != null
+
                 const body: Record<string, unknown> = {
                     messages: historyForApi,
+                }
+                if (sessionId && isServerSession) {
+                    body.sessionId = sessionId
                 }
                 if (selectedModel) {
                     body.model = {
@@ -496,58 +630,175 @@ export default function ChatPage() {
                     }
                 }
 
+                const abortController = new AbortController()
+                streamAbortRef.current = abortController
+
                 const res = await fetch("/api/chat", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "text/event-stream",
+                    },
                     body: JSON.stringify(body),
+                    signal: abortController.signal,
                 })
-                const data = await res.json()
 
-                if (data.error) throw new Error(data.error?.message || data.error)
+                if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
-                const assistantMsg: Message = {
-                    role: "assistant",
-                    content: data.answer || "",
-                    sources: data.sources || [],
-                    suggestions: data.suggestions || [],
+                const reader = res.body.getReader()
+                const decoder = new TextDecoder()
+                let buffer = ''
+                let fullContent = ''
+                let thinkingContent = ''
+                let currentEventType = ''
+                let returnedSessionId: string | null = null
+
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    buffer += decoder.decode(value, { stream: true })
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() || ''
+
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            currentEventType = line.slice(7).trim()
+                        } else if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6))
+
+                                switch (currentEventType) {
+                                    case 'token':
+                                        fullContent += data.content
+                                        setSessions((prev) =>
+                                            prev.map((s) => {
+                                                if (s.id !== sessionId) return s
+                                                const msgs = [...s.messages]
+                                                msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], content: fullContent, thinking: thinkingContent, isStreaming: true }
+                                                return { ...s, messages: msgs }
+                                            })
+                                        )
+                                        break
+                                    case 'thinking':
+                                        thinkingContent += data.content
+                                        setSessions((prev) =>
+                                            prev.map((s) => {
+                                                if (s.id !== sessionId) return s
+                                                const msgs = [...s.messages]
+                                                msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], thinking: thinkingContent, isStreaming: true }
+                                                return { ...s, messages: msgs }
+                                            })
+                                        )
+                                        break
+                                    case 'final':
+                                        returnedSessionId = data.sessionId || null
+                                        setSessions((prev) =>
+                                            prev.map((s) => {
+                                                if (s.id !== sessionId) return s
+                                                const msgs = [...s.messages]
+                                                msgs[msgs.length - 1] = {
+                                                    ...msgs[msgs.length - 1],
+                                                    content: data.answer || msgs[msgs.length - 1].content,
+                                                    sources: data.sources || [],
+                                                    suggestions: data.suggestions || [],
+                                                    isStreaming: false,
+                                                }
+                                                return { ...s, messages: msgs }
+                                            })
+                                        )
+                                        break
+                                    case 'error':
+                                        setSessions((prev) =>
+                                            prev.map((s) => {
+                                                if (s.id !== sessionId) return s
+                                                const msgs = [...s.messages]
+                                                msgs[msgs.length - 1] = {
+                                                    role: "assistant",
+                                                    content: data.partial
+                                                        ? data.partial + "\n\n**Error:** " + data.message
+                                                        : "Sorry, an error occurred: " + data.message,
+                                                    isStreaming: false,
+                                                }
+                                                return { ...s, messages: msgs }
+                                            })
+                                        )
+                                        break
+                                }
+                            } catch {
+                                // Skip malformed JSON
+                            }
+                        }
+                    }
                 }
 
-                const returnedSessionId = data.sessionId
+                if (returnedSessionId && returnedSessionId !== sessionId) {
+                    setSessions((prev) =>
+                        prev.map((s) =>
+                            s.id === sessionId
+                                ? { ...s, id: returnedSessionId }
+                                : s
+                        )
+                    )
+                    setActiveSessionId(returnedSessionId)
+                }
 
                 setSessions((prev) =>
                     prev.map((s) =>
-                        s.id === sessionId
+                        s.id === (returnedSessionId || sessionId)
                             ? {
                                 ...s,
-                                id: returnedSessionId || s.id,
-                                messages: [...s.messages.filter((_, i) => i !== s.messages.length - 1 || s.messages[s.messages.length - 1].role !== "user"), userMsg, assistantMsg],
+                                lastMessageAt: new Date().toISOString(),
+                                messageCount: (s.messageCount || 0) + 2,
                             }
                             : s
                     )
                 )
-
-                if (returnedSessionId && returnedSessionId !== sessionId) {
-                    setActiveSessionId(returnedSessionId)
-                }
-            } catch {
-                const errorMsg: Message = {
-                    role: "assistant",
-                    content:
-                        "Sorry, I encountered an error answering that. Please check your model configuration and try again.",
-                }
-                setSessions((prev) =>
-                    prev.map((s) =>
-                        s.id === sessionId
-                            ? { ...s, messages: [...s.messages, errorMsg] }
-                            : s
+            } catch (err: any) {
+                if (err.name === 'AbortError') {
+                    setSessions((prev) =>
+                        prev.map((s) => {
+                            if (s.id !== sessionId) return s
+                            const msgs = [...s.messages]
+                            const lastMsg = msgs[msgs.length - 1]
+                            if (lastMsg && lastMsg.isStreaming) {
+                                msgs[msgs.length - 1] = { ...lastMsg, isStreaming: false }
+                            }
+                            return { ...s, messages: msgs }
+                        })
                     )
-                )
+                } else {
+                    const errorMsg: Message = {
+                        role: "assistant",
+                        content:
+                            "Sorry, I encountered an error answering that. Please check your model configuration and try again.",
+                    }
+                    setSessions((prev) =>
+                        prev.map((s) => {
+                            if (s.id !== sessionId) return s
+                            const msgs = [...s.messages]
+                            const lastMsg = msgs[msgs.length - 1]
+                            if (lastMsg && lastMsg.isStreaming && !lastMsg.content) {
+                                msgs[msgs.length - 1] = errorMsg
+                            } else {
+                                msgs.push(errorMsg)
+                            }
+                            return { ...s, messages: msgs }
+                        })
+                    )
+                }
             } finally {
                 setIsLoading(false)
+                isStreamingRef.current = false
+                streamAbortRef.current = null
             }
         },
         [input, isLoading, activeSessionId, sessions, selectedModel, createSession]
     )
+
+    const handleStop = useCallback(() => {
+        streamAbortRef.current?.abort()
+    }, [])
 
     const handleSuggestionClick = useCallback(
         (suggestion: string) => {
@@ -557,33 +808,65 @@ export default function ChatPage() {
     )
 
     const handleRenameSession = useCallback(
-        (sessionId: string, newTitle: string) => {
+        async (sessionId: string, newTitle: string) => {
+            const oldTitle = sessions.find(s => s.id === sessionId)?.title
             setSessions((prev) =>
                 prev.map((s) =>
                     s.id === sessionId ? { ...s, title: newTitle } : s
                 )
             )
+            try {
+                await fetch(`/api/chat/sessions/${sessionId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTitle }),
+                })
+            } catch {
+                if (oldTitle) {
+                    setSessions((prev) =>
+                        prev.map((s) =>
+                            s.id === sessionId ? { ...s, title: oldTitle } : s
+                        )
+                    )
+                }
+            }
         },
-        []
+        [sessions]
     )
 
     const handleDeleteSession = useCallback(
-        (sessionId: string) => {
+        async (sessionId: string) => {
+            const deletedSession = sessions.find(s => s.id === sessionId)
             setSessions((prev) => prev.filter((s) => s.id !== sessionId))
             if (activeSessionId === sessionId) {
                 setActiveSessionId(null)
             }
+            try {
+                await fetch(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' })
+            } catch {
+                if (deletedSession) {
+                    setSessions((prev) => [deletedSession, ...prev])
+                }
+            }
         },
-        [activeSessionId]
+        [activeSessionId, sessions]
     )
 
     return (
-        <div className="flex h-[calc(100vh-2rem)] max-w-4xl mx-auto gap-3">
-            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-                <SheetContent side="left" className="w-72 p-0">
-                    <SheetHeader className="p-4 pb-2">
-                        <SheetTitle className="text-sm">Chat Sessions</SheetTitle>
-                    </SheetHeader>
+        <div className="flex h-[calc(100vh-2rem)] max-w-4xl mx-auto gap-3 relative">
+            {sidebarOpen && (
+                <div className="fixed left-[240px] top-0 bottom-0 w-72 bg-background border-r z-50 shadow-xl">
+                    <div className="p-4 pb-2 flex items-center justify-between">
+                        <span className="text-sm font-medium">Chat Sessions</span>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setSidebarOpen(false)}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
                     <div className="px-2 pb-2">
                         <Button
                             variant="outline"
@@ -612,17 +895,22 @@ export default function ChatPage() {
                                     onSelect={() => {
                                         setActiveSessionId(s.id)
                                         setSidebarOpen(false)
+                                        if (!s.messages || s.messages.length === 0) {
+                                            loadSessionMessages(s.id)
+                                        }
                                     }}
                                     onRename={(title) =>
                                         handleRenameSession(s.id, title)
                                     }
-                                    onDelete={() => handleDeleteSession(s.id)}
+                                    onDelete={() =>
+                                        handleDeleteSession(s.id)
+                                    }
                                 />
                             ))}
                         </div>
                     </ScrollArea>
-                </SheetContent>
-            </Sheet>
+                </div>
+            )}
 
             <div className="flex flex-1 flex-col min-w-0">
                 <div className="mb-3 flex items-center justify-between gap-3">
@@ -697,19 +985,6 @@ export default function ChatPage() {
 
                             <div ref={scrollRef} />
 
-                            {isLoading && (
-                                <div className="flex gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                        <Bot className="h-5 w-5 text-primary" />
-                                    </div>
-                                    <div className="bg-muted px-4 py-2 rounded-lg">
-                                        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            Thinking...
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -727,17 +1002,23 @@ export default function ChatPage() {
                                 }}
                                 disabled={isLoading}
                             />
-                            <Button
-                                onClick={() => handleSend()}
-                                disabled={isLoading || !input.trim()}
-                                size="icon"
-                            >
-                                {isLoading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
+                            {isLoading ? (
+                                <Button
+                                    onClick={handleStop}
+                                    variant="destructive"
+                                    size="icon"
+                                >
+                                    <Square className="h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => handleSend()}
+                                    disabled={!input.trim()}
+                                    size="icon"
+                                >
                                     <Send className="h-4 w-4" />
-                                )}
-                            </Button>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

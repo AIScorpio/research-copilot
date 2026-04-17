@@ -135,6 +135,13 @@ export function Sidebar({ className }: SidebarProps) {
             ariaLabel: "Go to technology radar"
         },
         {
+            label: "Research Chat",
+            icon: Bot,
+            href: "/chat",
+            active: pathname === "/chat",
+            ariaLabel: "Go to AI copilot chat"
+        },
+        {
             label: "Export Hub",
             icon: Download,
             href: "/export",
@@ -196,13 +203,6 @@ export function Sidebar({ className }: SidebarProps) {
             href: "/recommendations",
             active: pathname === "/recommendations",
             ariaLabel: "Go to PoC recommendations"
-        },
-        {
-            label: "Copilot",
-            icon: Bot,
-            href: "/chat",
-            active: pathname === "/chat",
-            ariaLabel: "Go to AI copilot chat"
         },
         {
             label: "Regulatory Alerts",

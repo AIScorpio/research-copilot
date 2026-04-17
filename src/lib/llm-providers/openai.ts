@@ -2,6 +2,7 @@ import { logger } from '../logger';
 import { BaseProvider } from '../llm-base-provider';
 import { LLMConfig } from '../llm-types';
 import { DEFAULT_MODELS } from '../llm-types';
+import { parseOpenAIStream } from './streaming/openai-stream-parser';
 
 export class OpenAIProvider extends BaseProvider {
     private apiKey: string;
@@ -67,6 +68,29 @@ export class OpenAIProvider extends BaseProvider {
 
         const data = await response.json();
         return data.choices[0]?.message?.content?.trim() || '';
+    }
+
+    async *chatStream(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): AsyncGenerator<{ type: 'token' | 'done' | 'error' | 'thinking'; content: string }, void, unknown> {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: this.config.model || DEFAULT_MODELS.openai,
+                messages,
+                temperature: this.config.temperature,
+                max_tokens: this.config.maxTokens,
+                stream: true,
+            }),
+        });
+        if (!response.ok) {
+            const error = await response.text().catch(() => `HTTP ${response.status}`);
+            yield { type: 'error', content: `${this.getProviderName()} API error: ${error}` };
+            return;
+        }
+        yield* parseOpenAIStream(response);
     }
 
     async testConnection(): Promise<boolean> {

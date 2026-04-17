@@ -20,6 +20,10 @@ export abstract class BaseProvider implements LLMProviderInterface {
         throw new Error('chat() not implemented for this provider');
     }
 
+    async *chatStream(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): AsyncGenerator<{ type: 'token' | 'done' | 'error' | 'thinking'; content: string }, void, unknown> {
+        throw new Error('chatStream() not implemented for this provider');
+    }
+
     async generateJSON<T>(prompt: string, systemPrompt?: string): Promise<T> {
         const text = await this.generateText(prompt, systemPrompt);
         return this.parseJSON<T>(text);

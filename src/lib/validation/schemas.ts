@@ -172,6 +172,17 @@ export const schemas = {
     })).min(1, 'At least one message is required').max(50, 'Too many messages'),
   }).strict(),
 
+  chatSessions: {
+    list: z.object({
+      limit: z.coerce.number().int().positive().max(100).default(50),
+      offset: z.coerce.number().int().nonnegative().default(0),
+    }).strict(),
+
+    update: z.object({
+      title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
+    }).strict(),
+  },
+
   tags: {
     create: z.object({
       name: z.string().min(1, 'Tag name is required').max(100),

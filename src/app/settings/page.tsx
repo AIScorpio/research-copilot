@@ -23,13 +23,14 @@ const DEFAULT_PROMPTS: PromptTemplates = {
     contentAssessment: '',
     summaryGeneration: '',
     tagSuggestion: '',
-    digestGeneration: ''
+    digestGeneration: '',
+    chatSystemPrompt: ''
 };
 
 export default function SettingsPage() {
     const [prompts, setPrompts] = useState<PromptTemplates>(DEFAULT_PROMPTS);
     const [isLoadingPrompts, setIsLoadingPrompts] = useState(true);
-    const [activePromptTab, setActivePromptTab] = useState<'query' | 'assessment' | 'summary' | 'tags' | 'digest'>('query');
+    const [activePromptTab, setActivePromptTab] = useState<'query' | 'assessment' | 'summary' | 'tags' | 'digest' | 'chat'>('query');
     const [isSavingPrompts, setIsSavingPrompts] = useState(false);
     const [promptMessage, setPromptMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -117,6 +118,13 @@ export default function SettingsPage() {
                                 >
                                     Digest Generation
                                 </Button>
+                                <Button
+                                    variant={activePromptTab === 'chat' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setActivePromptTab('chat')}
+                                >
+                                    Chat System Prompt
+                                </Button>
                             </div>
 
                             <div className="space-y-2">
@@ -127,6 +135,7 @@ export default function SettingsPage() {
                                         {activePromptTab === 'summary' && 'Summary Generation Prompt'}
                                         {activePromptTab === 'tags' && 'Tag Suggestion Prompt'}
                                         {activePromptTab === 'digest' && 'Digest Generation Prompt'}
+                                        {activePromptTab === 'chat' && 'Chat System Prompt'}
                                     </Label>
                                     <Button
                                         variant="ghost"
@@ -154,15 +163,16 @@ export default function SettingsPage() {
                                         activePromptTab === 'query' ? prompts.queryOptimization :
                                         activePromptTab === 'assessment' ? prompts.contentAssessment :
                                         activePromptTab === 'summary' ? prompts.summaryGeneration :
-                                        activePromptTab === 'tags' ? prompts.tagSuggestion :
-                                        prompts.digestGeneration
+                                         activePromptTab === 'tags' ? prompts.tagSuggestion :
+                                         activePromptTab === 'digest' ? prompts.digestGeneration :
+                                         prompts.chatSystemPrompt
                                     }
                                     onChange={(e) => setPrompts(prev => ({
                                         ...prev,
                                         [activePromptTab === 'query' ? 'queryOptimization' :
                                          activePromptTab === 'assessment' ? 'contentAssessment' :
                                          activePromptTab === 'summary' ? 'summaryGeneration' :
-                                         activePromptTab === 'tags' ? 'tagSuggestion' : 'digestGeneration']: e.target.value
+                                          activePromptTab === 'tags' ? 'tagSuggestion' : activePromptTab === 'digest' ? 'digestGeneration' : 'chatSystemPrompt']: e.target.value
                                     }))}
                                 />
                                 <p className="text-xs text-muted-foreground">
@@ -171,6 +181,7 @@ export default function SettingsPage() {
                                     {activePromptTab === 'summary' && 'This prompt generates concise summaries for banking professionals.'}
                                     {activePromptTab === 'tags' && 'This prompt suggests relevant tags from the banking AI taxonomy.'}
                                     {activePromptTab === 'digest' && 'This prompt generates the daily intelligence digest. Available variables: {{CURRENT_DATE}}, {{PAPER_COUNT}}, {{TOPIC}}, {{FEATURED_COUNT}}, {{TITLE}}, {{PAPERS}}, {{PAPERS_LIST}}'}
+                                    {activePromptTab === 'chat' && 'System prompt for the Research Chat assistant. Available variables: {{PAPER_COUNT}}, {{DATE_RANGE}}, {{FOCUS_AREAS}}, {{PAPER_CORPUS}}'}
                                 </p>
                             </div>
 

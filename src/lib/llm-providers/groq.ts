@@ -56,6 +56,25 @@ export class GroqProvider extends BaseProvider {
         return completion.choices[0]?.message?.content?.trim() || '';
     }
 
+    async *chatStream(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): AsyncGenerator<{ type: 'token' | 'done' | 'error' | 'thinking'; content: string }, void, unknown> {
+        try {
+            const stream = await this.client.chat.completions.create({
+                messages,
+                model: this.config.model || DEFAULT_MODELS.groq,
+                temperature: this.config.temperature,
+                max_tokens: this.config.maxTokens,
+                stream: true,
+            });
+            for await (const chunk of stream) {
+                const content = chunk.choices?.[0]?.delta?.content;
+                if (content) yield { type: 'token' as const, content };
+            }
+            yield { type: 'done' as const, content: '' };
+        } catch (err) {
+            yield { type: 'error' as const, content: err instanceof Error ? err.message : 'Groq stream error' };
+        }
+    }
+
     getProviderName(): string {
         return 'Groq';
     }

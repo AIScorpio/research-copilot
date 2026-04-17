@@ -5,7 +5,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 const { prisma } = require('@/lib/db');
-const { loadPaperCorpus, buildSystemPrompt, extractSources, getContextMode } = require('@/lib/rag');
+const { loadPaperCorpus, buildSystemPrompt, extractSources, getContextMode, detectPaperReferences, buildSupplementaryContext, MAX_SUPPLEMENTARY_PAPERS } = require('@/lib/rag');
 
 const mockPapers = [
   {
@@ -96,6 +96,7 @@ describe('RAG Module', () => {
 
     it('should return empty markdown for 0 papers', async () => {
       jest.spyOn(prisma.paper, 'findMany').mockResolvedValue([]);
+      jest.spyOn(prisma.paper, 'count').mockResolvedValue(0);
 
       const result = await loadPaperCorpus('compact');
 
@@ -121,11 +122,11 @@ describe('RAG Module', () => {
 
       expect(prompt).toContain('5 papers');
       expect(prompt).toContain('2024-01-01 to 2024-06-01');
-      expect(prompt).toContain('RULES');
+      expect(prompt).toContain('CITATION RULES');
       expect(prompt).toContain('risk-management');
       expect(prompt).toContain('compliance');
       expect(prompt).toContain('fraud-detection');
-      expect(prompt).toContain('CAPABILITIES');
+      expect(prompt).toContain('RESPONSE STRUCTURE');
     });
   });
 
@@ -172,6 +173,109 @@ describe('RAG Module', () => {
 
     it('should return full for context window at or above 256000', () => {
       expect(getContextMode(300000)).toBe('full');
+    });
+  });
+
+  describe('detectPaperReferences', () => {
+    it('T11: should detect "Paper 3"', () => {
+      expect(detectPaperReferences('Tell me about Paper 3', undefined, 10)).toEqual([3]);
+    });
+
+    it('T11b: should detect "paper #5"', () => {
+      expect(detectPaperReferences('What about paper #5', undefined, 10)).toEqual([5]);
+    });
+
+    it('T12: should detect "第2篇" (Chinese)', () => {
+      expect(detectPaperReferences('第2篇论文讲了什么', undefined, 10)).toEqual([2]);
+    });
+
+    it('T12b: should detect "第 3 篇" (Chinese with spaces)', () => {
+      expect(detectPaperReferences('第 3 篇论文讲了什么', undefined, 10)).toEqual([3]);
+    });
+
+    it('T13: should detect multiple references', () => {
+      expect(detectPaperReferences('Compare Paper 1 and Paper 5', undefined, 10)).toEqual([1, 5]);
+    });
+
+    it('T14: should return empty for no references', () => {
+      expect(detectPaperReferences('What is fraud detection?', undefined, 10)).toEqual([]);
+    });
+
+    it('T15: should filter out index 0', () => {
+      expect(detectPaperReferences('Paper 0', undefined, 10)).toEqual([]);
+    });
+
+    it('T16: should filter out out-of-range index', () => {
+      expect(detectPaperReferences('Paper 999', undefined, 10)).toEqual([]);
+    });
+
+    it('T17: should detect references from assistant context', () => {
+      expect(detectPaperReferences('tell me more', 'As mentioned in Paper 7 and Paper 2', 10)).toEqual([7, 2]);
+    });
+
+    it('T17b: should prefer user message references over assistant context', () => {
+      expect(detectPaperReferences('Tell me about Paper 3', 'As mentioned in Paper 7', 10)).toEqual([3]);
+    });
+
+    it('T18: should cap at MAX_SUPPLEMENTARY_PAPERS', () => {
+      const refs = detectPaperReferences(
+        'Paper 1, Paper 2, Paper 3, Paper 4, Paper 5, Paper 6, Paper 7, Paper 8, Paper 9, Paper 10, Paper 11, Paper 12, Paper 13, Paper 14, Paper 15',
+        undefined,
+        20
+      );
+      expect(refs.length).toBeLessThanOrEqual(MAX_SUPPLEMENTARY_PAPERS);
+      expect(refs.length).toBe(10);
+    });
+
+    it('should detect "the 1st paper"', () => {
+      expect(detectPaperReferences('the 1st paper is interesting', undefined, 10)).toEqual([1]);
+    });
+
+    it('should detect "paper at position 4"', () => {
+      expect(detectPaperReferences('look at paper at position 4', undefined, 10)).toEqual([4]);
+    });
+
+    it('should deduplicate references', () => {
+      expect(detectPaperReferences('Paper 3 and Paper 3 again', undefined, 10)).toEqual([3]);
+    });
+  });
+
+  describe('buildSupplementaryContext', () => {
+    it('T23: should build markdown with abstracts for specified papers', async () => {
+      jest.spyOn(prisma.paper, 'findMany').mockResolvedValue([
+        { ...mockPapers[0], tags: mockPapers[0].tags },
+        { ...mockPapers[2], tags: mockPapers[2].tags },
+      ] as any);
+
+      const paperIds = ['1', '2', '3'];
+      const result = await buildSupplementaryContext(paperIds, [1, 3]);
+
+      expect(result).toContain('**Abstract:** Abstract for paper one');
+      expect(result).toContain('Paper One');
+      expect(prisma.paper.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: { in: ['1', '3'] } }) })
+      );
+    });
+
+    it('T24: should handle paper with no abstract', async () => {
+      jest.spyOn(prisma.paper, 'findMany').mockResolvedValue([
+        { ...mockPapers[2], tags: mockPapers[2].tags },
+      ] as any);
+
+      const paperIds = ['1', '2', '3'];
+      const result = await buildSupplementaryContext(paperIds, [3]);
+
+      expect(result).toContain('Paper Three');
+      expect(result).not.toContain('**Abstract:**');
+    });
+
+    it('should return empty string for no valid indices', async () => {
+      const findManySpy = jest.spyOn(prisma.paper, 'findMany').mockResolvedValue([]);
+      const paperIds = ['1'];
+      const result = await buildSupplementaryContext(paperIds, [999]);
+
+      expect(result).toBe('');
+      expect(findManySpy).not.toHaveBeenCalled();
     });
   });
 });

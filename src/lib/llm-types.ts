@@ -31,6 +31,7 @@ export interface LLMProviderInterface {
     generateText(prompt: string, systemPrompt?: string): Promise<string>;
     generateJSON<T>(prompt: string, systemPrompt?: string): Promise<T>;
     chat(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): Promise<string>;
+    chatStream(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): AsyncGenerator<{ type: 'token' | 'done' | 'error' | 'thinking'; content: string }, void, unknown>;
     testConnection(): Promise<boolean>;
     getProviderName(): string;
 }
