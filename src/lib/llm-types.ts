@@ -10,7 +10,7 @@ export interface LLMConfig {
 }
 
 export const DEFAULT_MODELS: Record<LLMProvider, string> = {
-    groq: 'moonshotai/kimi-k2-instruct-0905',
+    groq: 'llama-3.3-70b-versatile',
     openai: 'gpt-4o-mini',
     anthropic: 'claude-3-haiku-20240307',
     ollama: 'llama3.2',
