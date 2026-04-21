@@ -104,5 +104,8 @@ InsightFlow_*
 # Refactor/design reports (internal use)
 refactor/
 
+# Personal goal/vision doc
+GOAL.md
+
 # Sharing presentations (internal drafts)
 /_sharing/

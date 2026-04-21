@@ -26,10 +26,12 @@ Research workflows face common challenges: information overload, scattered knowl
 
 | Feature | Description | Value |
 |---------|-------------|-------|
-| **Intelligent Collection** | Multi-source aggregation from ArXiv, Semantic Scholar, RSS feeds with AI-powered relevance filtering | Cut through noise, focus on what matters |
+| **Intelligent Collection** | Multi-source aggregation from 17+ academic, news, regulatory, and social media sources with AI-powered relevance filtering | Cut through noise, focus on what matters |
+| **Research Chat** | Multi-turn conversation with your paper library — streaming responses, source extraction, session management, and multi-model support (10 LLM providers with automatic fallback) | Ask questions, get cited answers |
+| **Daily Digest** | Automated digest engine with quality validation, cascade updates, and distribution via email or export | Turn papers into shareable intelligence |
 | **Technology Radar** | Thoughtworks-style quadrant view (Adopt/Trial/Assess/Hold) tracking technology maturity and relevance | Strategic view of emerging technologies |
-| **Export Hub** | One-click generation of PowerPoint decks, email digests, and social media posts | Share insights professionally, instantly |
-| **AI-Powered Analysis** | Real-time technical summaries, auto-tagging, and context-aware RAG chat with your paper library | Deep understanding without the manual effort |
+| **Export Hub** | One-click generation of PowerPoint decks, email digests, and social media posts (LinkedIn, Twitter/X) | Share insights professionally, instantly |
+| **AI-Powered Analysis** | Real-time technical summaries, auto-tagging, and 4-dimensional content assessment | Deep understanding without the manual effort |
 
 ### Potential Future Enhancements
 
@@ -111,7 +113,7 @@ AI-generated metadata flows through to power intelligent features:
 |--------|--------|
 | **Tags** | Dashboard topic charts, Technology Radar categorization, Paper filtering & search |
 | **Scores** | Technology Radar maturity/relevance calculations, Quality thresholds |
-| **Summaries** | Paper cards, Export outputs (PPT, digests), Future: RAG chat context |
+| **Summaries** | Paper cards, Export outputs (PPT, digests), Research Chat context |
 | **Assessment** | Transparency on why papers are included, Future: PoC recommendations |
 
 ---
@@ -135,6 +137,10 @@ AI-generated metadata flows through to power intelligent features:
 ![Technology Radar Detail](screenshots/tech%20radar-2.png)
 *Quadrant view powered by aggregated tags and scores, with maturity/relevance indicators*
 
+### Research Chat
+![Research Chat](screenshots/research%20chat.png)
+*Multi-turn Q&A with streaming responses, source extraction, and model selection*
+
 ### Collection Pipeline
 ![Collection Pipeline](screenshots/pipeline%20collection.png)
 *Agent-driven collection with real-time logs showing each AI augmentation step*
@@ -156,7 +162,7 @@ AI-generated metadata flows through to power intelligent features:
 | Aspect | Implementation |
 |--------|----------------|
 | **Framework** | Next.js with TypeScript |
-| **AI/LLM** | Multi-LLM support with automatic fallback |
+| **AI/LLM** | 10 providers (Groq, OpenAI, Anthropic, Gemini, ZhipuAI, Kimi, Baidu, Alibaba, Ollama, LM Studio) with automatic fallback |
 | **Database** | Prisma ORM with SQLite |
 | **UI** | React with Tailwind CSS |
 
@@ -205,7 +211,7 @@ npm run dev
 
 | Status | Features |
 |--------|----------|
-| **Working** | Intelligent Collection (Auto/Manual/Pipeline modes), AI Augmentation (Query/Assessment/Tags/Summary), Technology Radar, Export Hub, RAG Chat |
+| **Working** | Intelligent Collection (17+ sources, Auto/Manual/Pipeline modes), AI Augmentation (Query/Assessment/Tags/Summary), Research Chat (streaming, multi-model), Daily Digest (auto-generation, quality validation), Technology Radar, Export Hub |
 | **Planned** | Competitive Intelligence, PoC Recommendations, Regulatory Alerts |
 
 ---

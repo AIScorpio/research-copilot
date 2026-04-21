@@ -19,7 +19,7 @@ const ChatRequestSchema = z.object({
 });
 
 export const maxDuration = 120;
-const STREAM_TIMEOUT_MS = 120_000;
+const STREAM_TIMEOUT_MS = 300_000;
 
 const SUGGESTIONS_REGEX = /\*{0,2}Suggested (?:questions|follow-ups?):\*{0,2}\s*\n([\s\S]*?)$/i;
 
