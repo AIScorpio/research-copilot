@@ -40,9 +40,8 @@ function LoginForm() {
             });
             
             if (res.ok) {
-                // Dispatch auth state change event to refresh sidebar
-                window.dispatchEvent(new CustomEvent('auth-state-changed'));
-                router.push('/');
+                const redirectTo = searchParams.get('redirect') || '/';
+                window.location.href = redirectTo;
             } else {
                 const data = await res.json()
                 setError(data.error || 'Invalid credentials');
