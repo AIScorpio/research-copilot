@@ -26,7 +26,7 @@ import {
     Send,
     User,
     Plus,
-    MessageSquare,
+    MessageSquare, PanelLeft,
     X,
     ChevronDown,
     MoreHorizontal,
@@ -853,10 +853,10 @@ export default function ChatPage() {
     )
 
     return (
-        <div className="flex h-[calc(100vh-2rem)] max-w-4xl mx-auto gap-3 relative">
+        <div className="flex h-[calc(100vh-3rem)] -mx-4 md:-mx-8 -my-6 gap-0">
             {sidebarOpen && (
-                <div className="fixed left-[240px] top-0 bottom-0 w-72 bg-background border-r z-50 shadow-xl">
-                    <div className="p-4 pb-2 flex items-center justify-between">
+                <div className="w-64 shrink-0 border-r bg-muted/30 flex flex-col">
+                    <div className="px-4 pt-6 pb-2 flex items-center justify-between">
                         <span className="text-sm font-medium">Chat Sessions</span>
                         <Button
                             variant="ghost"
@@ -894,7 +894,6 @@ export default function ChatPage() {
                                     isActive={s.id === activeSessionId}
                                     onSelect={() => {
                                         setActiveSessionId(s.id)
-                                        setSidebarOpen(false)
                                         if (!s.messages || s.messages.length === 0) {
                                             loadSessionMessages(s.id)
                                         }
@@ -913,19 +912,19 @@ export default function ChatPage() {
             )}
 
             <div className="flex flex-1 flex-col min-w-0">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="px-4 pt-6 pb-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(true)}>
-                                <MessageSquare className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(!sidebarOpen)}>
+                                <PanelLeft className="h-4 w-4" />
                             </Button>
                         <div>
-                            <h1 className="text-lg font-semibold tracking-tight leading-tight">
-                                Research Copilot
+                            <h1 className="text-3xl font-bold tracking-tight">
+                                Chat to Insights
                             </h1>
-                            <p className="text-xs text-muted-foreground leading-tight">
+                            <p className="text-sm text-muted-foreground mt-1">
                                 {activeSession
                                     ? activeSession.title
-                                    : "Chat with your repository"}
+                                    : "Chat with your research repository"}
                             </p>
                         </div>
                     </div>
@@ -949,7 +948,7 @@ export default function ChatPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 min-h-0 border rounded-lg bg-card shadow-sm overflow-hidden flex flex-col">
+                <div className="flex-1 min-h-0 border rounded-lg bg-card shadow-sm overflow-hidden flex flex-col mx-4 mb-4">
                     <div ref={scrollViewportRef} className="flex-1 min-h-0 overflow-y-auto p-4">
                         <div className="space-y-4">
                             {currentMessages.length === 0 && (
