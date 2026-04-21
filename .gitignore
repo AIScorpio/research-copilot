@@ -80,16 +80,8 @@ test-report*.md
 *.log
 logs/*.log
 
-# Dry-run test scripts
-scripts/dry-run-*.js
-scripts/dry-run-*.ts
-
-# Temporary test scripts
-scripts/test-*.ts
-scripts/debug_*.ts
-scripts/verify-*.ts
-scripts/verify-*.sh
-scripts/*_test_*.md
+# Temporary scripts (keep only switch-db.js)
+scripts/*.ts
 
 # Internal documents
 /doc/api-doc-*.html
