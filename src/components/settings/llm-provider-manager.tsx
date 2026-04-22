@@ -48,6 +48,7 @@ export function LLMProviderManager() {
     const [availableProviders, setAvailableProviders] = useState<AvailableProvider[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [ollamaModels, setOllamaModels] = useState<Record<string, any[]>>({});
+    const [ollamaCloudModels, setOllamaCloudModels] = useState<Record<string, any[]>>({});
     const [groqModels, setGroqModels] = useState<Record<string, any[]>>({});
     const [lmstudioModels, setLmstudioModels] = useState<Record<string, any[]>>({});
     const { addToast } = useToast();
@@ -79,6 +80,33 @@ export function LLMProviderManager() {
             fetchOllamaModels();
         }
     }, [configs, availableProviders]);
+
+    // Fetch Ollama Cloud models dynamically when Ollama Cloud configs are present
+    useEffect(() => {
+        const fetchOllamaCloudModels = async () => {
+            const ollamaCloudConfigs = configs.filter(c => c.provider.type === 'ollama-cloud');
+            
+            for (const config of ollamaCloudConfigs) {
+                try {
+                    const response = await fetch(`/api/llm-providers/ollama-cloud-models`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.models.length > 0) {
+                        setOllamaCloudModels(prev => ({
+                            ...prev,
+                            [config.id]: data.models
+                        }));
+                    }
+                } catch (error) {
+                    logger.error('Failed to fetch Ollama Cloud models:', { error: error instanceof Error ? error.message : String(error) });
+                }
+            }
+        };
+
+        if (configs.length > 0) {
+            fetchOllamaCloudModels();
+        }
+    }, [configs]);
 
     // Fetch Groq models dynamically when Groq configs are present
     useEffect(() => {
@@ -303,6 +331,12 @@ export function LLMProviderManager() {
                         
                         if (config.provider.type === 'ollama' && ollamaModels[config.id]) {
                             dynamicModels = ollamaModels[config.id].map(m => ({ 
+                                id: m.externalId, 
+                                name: m.name, 
+                                externalId: m.externalId 
+                            }));
+                        } else if (config.provider.type === 'ollama-cloud' && ollamaCloudModels[config.id]) {
+                            dynamicModels = ollamaCloudModels[config.id].map(m => ({ 
                                 id: m.externalId, 
                                 name: m.name, 
                                 externalId: m.externalId 

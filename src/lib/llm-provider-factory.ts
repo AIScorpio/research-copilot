@@ -3,6 +3,7 @@ import { GroqProvider } from './llm-providers/groq';
 import { OpenAIProvider } from './llm-providers/openai';
 import { AnthropicProvider } from './llm-providers/anthropic';
 import { OllamaProvider } from './llm-providers/ollama';
+import { OllamaCloudProvider } from './llm-providers/ollama-cloud';
 import { LMStudioProvider } from './llm-providers/lmstudio';
 import { ZhipuAIProvider } from './llm-providers/zhipuai';
 import { KimiProvider } from './llm-providers/kimi';
@@ -21,6 +22,8 @@ export class LLMProviderFactory {
                 return new AnthropicProvider(config);
             case 'ollama':
                 return new OllamaProvider(config);
+            case 'ollama-cloud':
+                return new OllamaCloudProvider(config);
             case 'lmstudio':
                 return new LMStudioProvider(config);
             case 'zhipuai':

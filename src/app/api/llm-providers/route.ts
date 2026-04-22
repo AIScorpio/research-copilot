@@ -36,6 +36,8 @@ function getApiKeyFromEnv(providerType: string): string | undefined {
             return process.env.BAIDU_API_KEY;
         case 'alibaba':
             return process.env.ALIBABA_API_KEY;
+        case 'ollama-cloud':
+            return process.env.OLLAMA_API_KEY;
         default:
             return undefined;
     }
@@ -64,6 +66,8 @@ function getApiKeyEnvName(providerType: string): string | undefined {
             return 'BAIDU_API_KEY';
         case 'alibaba':
             return 'ALIBABA_API_KEY';
+        case 'ollama-cloud':
+            return 'OLLAMA_API_KEY';
         default:
             return undefined;
     }
@@ -79,6 +83,7 @@ export async function initializeBaseProviders() {
         { type: 'azure', name: 'Azure OpenAI', isCloud: true, docsUrl: 'https://learn.microsoft.com/azure/ai-services/openai' },
         { type: 'cohere', name: 'Cohere', isCloud: true, docsUrl: 'https://docs.cohere.com' },
         { type: 'ollama', name: 'Ollama', isCloud: false, baseUrl: 'http://localhost:11434', docsUrl: 'https://ollama.com/docs' },
+        { type: 'ollama-cloud', name: 'Ollama Cloud', isCloud: true, baseUrl: 'https://ollama.com', docsUrl: 'https://docs.ollama.com/cloud' },
         { type: 'lmstudio', name: 'LM Studio', isCloud: false, baseUrl: 'http://localhost:1234', docsUrl: 'https://lmstudio.ai/docs' },
         { type: 'zhipuai', name: 'ZhipuAI (智谱AI)', isCloud: true, docsUrl: 'https://www.bigmodel.cn/dev/howuse/introduction' },
         { type: 'kimi', name: 'Kimi (月之暗面)', isCloud: true, docsUrl: 'https://docs.moonshot.cn' },
@@ -113,6 +118,9 @@ export async function initializeBaseProviders() {
         // Ollama models
         { providerType: 'ollama', externalId: 'llama3.2', name: 'Llama 3.2', contextWindow: 128000, capabilities: JSON.stringify(['chat']) },
         { providerType: 'ollama', externalId: 'mistral', name: 'Mistral', contextWindow: 32768, capabilities: JSON.stringify(['chat']) },
+        // Ollama Cloud models
+        { providerType: 'ollama-cloud', externalId: 'gpt-oss:120b', name: 'GPT-OSS 120B', contextWindow: 128000, capabilities: JSON.stringify(['chat']) },
+        { providerType: 'ollama-cloud', externalId: 'gpt-oss:20b', name: 'GPT-OSS 20B', contextWindow: 128000, capabilities: JSON.stringify(['chat']) },
         // LM Studio (generic)
         { providerType: 'lmstudio', externalId: 'local-model', name: 'Local Model', contextWindow: 4096, capabilities: JSON.stringify(['chat']) },
         // ZhipuAI models
@@ -160,9 +168,13 @@ export async function GET() {
         const user = await requireAuth();
 
         // Initialize base providers if database is empty (first run)
+        // Also safely add any new providers that were added in recent updates
         const providerCount = await prisma.lLMProviderBase.count();
         if (providerCount === 0) {
             await initializeBaseProviders();
+        } else {
+            // Safely add new providers without touching existing ones
+            await initializeNewProvidersOnly();
         }
 
         const configs = await prisma.userLLMConfig.findMany({
@@ -579,6 +591,66 @@ export async function DELETE(request: Request) {
     } catch (error) {
         const handled = handleError(error);
         return NextResponse.json({ ...handled, success: false }, { status: handled.statusCode });
+    }
+}
+
+// Safely initialize only new providers that don't exist yet
+// This is used when the database already has providers but new ones were added in code
+async function initializeNewProvidersOnly() {
+    try {
+        // Check if ollama-cloud exists
+        const existing = await prisma.lLMProviderBase.findUnique({
+            where: { type: 'ollama-cloud' }
+        });
+
+        if (!existing) {
+            // Create the new provider only
+            const provider = await prisma.lLMProviderBase.create({
+                data: {
+                    type: 'ollama-cloud',
+                    name: 'Ollama Cloud',
+                    isCloud: true,
+                    baseUrl: 'https://ollama.com',
+                    docsUrl: 'https://docs.ollama.com/cloud'
+                }
+            });
+
+            // Add default models for ollama-cloud
+            const defaultModels = [
+                {
+                    providerId: provider.id,
+                    externalId: 'gpt-oss:120b',
+                    name: 'GPT-OSS 120B',
+                    contextWindow: 128000,
+                    capabilities: JSON.stringify(['chat'])
+                },
+                {
+                    providerId: provider.id,
+                    externalId: 'gpt-oss:20b',
+                    name: 'GPT-OSS 20B',
+                    contextWindow: 128000,
+                    capabilities: JSON.stringify(['chat'])
+                }
+            ];
+
+            for (const model of defaultModels) {
+                await prisma.lLMModelBase.upsert({
+                    where: {
+                        providerId_externalId: {
+                            providerId: model.providerId,
+                            externalId: model.externalId
+                        }
+                    },
+                    update: {},
+                    create: model
+                });
+            }
+
+            logger.info('Initialized new provider: ollama-cloud');
+        }
+    } catch (error) {
+        // Log but don't throw - this should never break the main request
+        logger.error('Failed to initialize new providers', { error });
     }
 }
 

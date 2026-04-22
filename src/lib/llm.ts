@@ -14,7 +14,7 @@ export async function generateText(options: {
   maxTokens?: number;
   timeout?: number;
 }): Promise<{ text: string }> {
-  const { prompt, system, timeout = 30000 } = options;
+  const { prompt, system, timeout = 120000 } = options;
   
   console.log(`[LLM] Starting generateText with timeout ${timeout}ms, prompt length: ${prompt.length}`);
   

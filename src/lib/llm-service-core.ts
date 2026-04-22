@@ -152,6 +152,8 @@ export function getApiKeyFromEnv(providerType: string): string | undefined {
             return process.env.BAIDU_API_KEY;
         case 'alibaba':
             return process.env.ALIBABA_API_KEY;
+        case 'ollama-cloud':
+            return process.env.OLLAMA_API_KEY;
         default:
             return undefined;
     }

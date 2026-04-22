@@ -62,6 +62,12 @@ const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
         envKey: 'GEMINI_API_KEY',
         bodyFormat: 'openai',
         requiresAuth: true
+    },
+    'ollama-cloud': {
+        apiUrl: 'https://ollama.com/api/chat',
+        envKey: 'OLLAMA_API_KEY',
+        bodyFormat: 'ollama',
+        requiresAuth: true
     }
 };
 
@@ -97,7 +103,7 @@ export async function callLLM(
         if (!config) {
             return {
                 success: false,
-                error: `Unknown provider: ${provider}. Supported: groq, zhipuai, ollama`,
+                error: `Unknown provider: ${provider}. Supported: groq, zhipuai, ollama, ollama-cloud, gemini`,
                 duration: Date.now() - startTime
             };
         }
@@ -121,6 +127,8 @@ export async function callLLM(
             });
             const baseUrl = providerRecord?.baseUrl || 'http://localhost:11434';
             apiUrl = `${baseUrl}/api/chat`;
+        } else if (providerLower === 'ollama-cloud') {
+            apiUrl = 'https://ollama.com/api/chat';
         }
 
         // Build request based on provider format
@@ -145,12 +153,17 @@ export async function callLLM(
                 temperature
             };
         } else if (config.bodyFormat === 'ollama') {
-            // Ollama-specific format
+            // Ollama-specific format (local or cloud)
             const messages: Array<{ role: string; content: string }> = [];
             if (systemPrompt) {
                 messages.push({ role: 'system', content: systemPrompt });
             }
             messages.push({ role: 'user', content: userPrompt });
+
+            if (providerLower === 'ollama-cloud' && apiKey) {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+            }
+            headers['Content-Type'] = 'application/json';
 
             body = {
                 model,

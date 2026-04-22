@@ -26,8 +26,15 @@ export async function* parseOllamaStream(
                         yield { type: 'done', content: '' };
                         return;
                     }
-                    if (parsed.response) {
-                        yield { type: 'token', content: parsed.response };
+                    // Support both /api/generate (response) and /api/chat (message.content) formats
+                    const content = parsed.response || parsed.message?.content;
+                    if (content) {
+                        yield { type: 'token', content };
+                    }
+                    // Support thinking-capable models (e.g., qwen3, deepseek-r1)
+                    const thinking = parsed.message?.thinking;
+                    if (thinking) {
+                        yield { type: 'thinking', content: thinking };
                     }
                 } catch {
                     // Skip malformed chunks

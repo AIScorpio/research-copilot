@@ -1,4 +1,4 @@
-export type LLMProvider = 'groq' | 'openai' | 'anthropic' | 'ollama' | 'lmstudio' | 'zhipuai' | 'kimi' | 'baidu' | 'alibaba' | 'gemini';
+export type LLMProvider = 'groq' | 'openai' | 'anthropic' | 'ollama' | 'ollama-cloud' | 'lmstudio' | 'zhipuai' | 'kimi' | 'baidu' | 'alibaba' | 'gemini';
 
 export interface LLMConfig {
     provider: LLMProvider;
@@ -14,6 +14,7 @@ export const DEFAULT_MODELS: Record<LLMProvider, string> = {
     openai: 'gpt-4o-mini',
     anthropic: 'claude-3-haiku-20240307',
     ollama: 'llama3.2',
+    'ollama-cloud': 'gpt-oss:120b',
     lmstudio: 'local-model',
     zhipuai: 'glm-4.7',
     kimi: 'moonshot-v1-32k',
@@ -24,6 +25,7 @@ export const DEFAULT_MODELS: Record<LLMProvider, string> = {
 
 export const DEFAULT_BASE_URLS: Partial<Record<LLMProvider, string>> = {
     ollama: 'http://localhost:11434',
+    'ollama-cloud': 'https://ollama.com',
     lmstudio: 'http://localhost:1234'
 };
 

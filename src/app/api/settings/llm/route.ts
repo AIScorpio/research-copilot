@@ -22,7 +22,7 @@ import { logger } from '@/lib/logger';
 
 // Validation schema for LLM configuration
 const LLMConfigSchema = z.object({
-    provider: z.enum(['groq', 'openai', 'anthropic', 'ollama', 'lmstudio', 'gemini']),
+    provider: z.enum(['groq', 'openai', 'anthropic', 'ollama', 'ollama-cloud', 'lmstudio', 'gemini']),
     apiKey: z.string().optional(),
     baseUrl: z.string().url().optional(),
     model: z.string().optional(),
@@ -68,7 +68,7 @@ export async function GET() {
         const maskedConfig = {
             ...config,
             apiKey: config.apiKey ? `${config.apiKey.substring(0, 4)}...${config.apiKey.substring(config.apiKey.length - 4)}` : undefined,
-            isConfigured: !!config.apiKey || config.provider === 'ollama' || config.provider === 'lmstudio'
+            isConfigured: !!config.apiKey || config.provider === 'ollama' || config.provider === 'ollama-cloud' || config.provider === 'lmstudio'
         };
         
         return NextResponse.json({
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
         const config = validationResult.data;
         
         // Validate API key for cloud providers
-        if (['groq', 'openai', 'anthropic', 'gemini'].includes(config.provider)) {
+        if (['groq', 'openai', 'anthropic', 'gemini', 'ollama-cloud'].includes(config.provider)) {
             if (!config.apiKey || config.apiKey.length < 10) {
                 return NextResponse.json({
                     success: false,
@@ -178,6 +178,10 @@ export async function POST(request: Request) {
                     case 'gemini':
                         apiKeyName = 'GEMINI_API_KEY';
                         process.env.GEMINI_API_KEY = config.apiKey;
+                        break;
+                    case 'ollama-cloud':
+                        apiKeyName = 'OLLAMA_API_KEY';
+                        process.env.OLLAMA_API_KEY = config.apiKey;
                         break;
                     default:
                         apiKeyName = '';

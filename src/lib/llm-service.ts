@@ -6,6 +6,7 @@ export { GroqProvider } from './llm-providers/groq';
 export { OpenAIProvider } from './llm-providers/openai';
 export { AnthropicProvider } from './llm-providers/anthropic';
 export { OllamaProvider } from './llm-providers/ollama';
+export { OllamaCloudProvider } from './llm-providers/ollama-cloud';
 export { LMStudioProvider } from './llm-providers/lmstudio';
 export { ZhipuAIProvider } from './llm-providers/zhipuai';
 export { KimiProvider } from './llm-providers/kimi';

@@ -110,6 +110,8 @@ function getApiKeyFromEnv(providerType: string): string | undefined {
             return process.env.BAIDU_API_KEY;
         case 'gemini':
             return process.env.GEMINI_API_KEY;
+        case 'ollama-cloud':
+            return process.env.OLLAMA_API_KEY;
         case 'ollama':
         case 'lmstudio':
             return undefined; // Local providers don't need API keys

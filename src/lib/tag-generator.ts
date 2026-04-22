@@ -97,8 +97,11 @@ ABSTRACT: ${abstract || 'No abstract available'}${existingTagsNote}`;
 
         const result = await generateJSONWithFallback<GeneratedTag[]>(prompt, systemPrompt);
 
+        // Normalize: if LLM returns single object, wrap in array
+        const normalizedResult = Array.isArray(result) ? result : [result];
+
         // Validate result is an array
-        if (!Array.isArray(result)) {
+        if (!Array.isArray(normalizedResult)) {
             logger.error('[TagGenerator] LLM returned non-array result', { 
                 title: title.substring(0, 50),
                 resultType: typeof result,
@@ -108,7 +111,7 @@ ABSTRACT: ${abstract || 'No abstract available'}${existingTagsNote}`;
         }
 
         // Validate and normalize tags
-        const validTags = result
+        const validTags = normalizedResult
             .filter(tag => tag && tag.name && tag.category)
             .map(tag => ({
                 name: tag.name.toLowerCase().replace(/\s+/g, '-'),

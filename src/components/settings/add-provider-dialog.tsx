@@ -35,6 +35,7 @@ function getApiKeyEnvName(providerType: string): string {
         case 'kimi': return 'KIMI_API_KEY';
         case 'baidu': return 'BAIDU_API_KEY';
         case 'alibaba': return 'ALIBABA_API_KEY';
+        case 'ollama-cloud': return 'OLLAMA_API_KEY';
         default: return 'API_KEY';
     }
 }

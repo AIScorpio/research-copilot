@@ -151,6 +151,58 @@ export async function fetchOllamaModels(config: FetchModelsConfig): Promise<LLMM
     }
 }
 
+/**
+ * Fetch available models from Ollama Cloud
+ *
+ * API Keys: process.env.OLLAMA_API_KEY (ONLY from .env, never from DB)
+ * Endpoint: https://ollama.com/api/tags
+ * Auth: Bearer token in Authorization header
+ * Response: Ollama-specific format { models: [{ name, ... }] }
+ */
+export async function fetchOllamaCloudModels(config?: FetchModelsConfig): Promise<LLMModelInfo[]> {
+    const apiKey = process.env.OLLAMA_API_KEY;
+
+    if (!apiKey) {
+        logger.warn('[ModelFetcher] OLLAMA_API_KEY not configured');
+        return [];
+    }
+
+    try {
+        const response = await fetch('https://ollama.com/api/tags', {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            logger.error('[ModelFetcher] Ollama Cloud API error', { status: response.status });
+            return [];
+        }
+
+        const data = await response.json();
+        const models: LLMModelInfo[] = (data.models || [])
+            .map((m: any) => ({
+                externalId: m.name,
+                name: m.name,
+                contextWindow: 128000,
+                capabilities: ['chat']
+            }));
+
+        logger.info(`[ModelFetcher] Fetched ${models.length} Ollama Cloud models`);
+
+        // Update DB cache if providerId provided
+        if (config?.providerId) {
+            await updateModelsInDB(config.providerId, models);
+        }
+
+        return models;
+    } catch (error) {
+        logger.error('[ModelFetcher] Failed to fetch Ollama Cloud models', { error });
+        return [];
+    }
+}
+
 export async function fetchLMStudioModels(config: FetchModelsConfig): Promise<LLMModelInfo[]> {
     const baseUrl = config.baseUrl || 'http://localhost:1234';
 
@@ -244,6 +296,8 @@ export async function fetchAvailableModels(
             return fetchZhipuModels(config);
         case 'ollama':
             return fetchOllamaModels(config || {});
+        case 'ollama-cloud':
+            return fetchOllamaCloudModels(config);
         case 'lmstudio':
             return fetchLMStudioModels(config || {});
         case 'gemini':
