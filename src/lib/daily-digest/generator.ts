@@ -41,14 +41,8 @@ export class DigestGenerator {
       const content = this.parseGeneratedContent(result.text);
       let bodyContent = content.body;
       if (!bodyContent.includes(dateCode)) {
-        const date = new Date(dateCode);
-        const usDate = date.toLocaleDateString('en-US');
-        const year = date.getFullYear().toString();
-        
-        if (!bodyContent.includes(usDate) && !bodyContent.includes(year)) {
-          bodyContent = `Research Digest: ${dateCode}\n\n${bodyContent}`;
-          console.log(`[DigestGenerator] Forced date injection for ${dateCode}`);
-        }
+        bodyContent = `${dateCode}\n\n${bodyContent}`;
+        console.log(`[DigestGenerator] Forced date injection for ${dateCode}`);
       }
       
       return {
