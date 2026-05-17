@@ -4,6 +4,15 @@ import { BaseProvider } from '../llm-base-provider';
 import { LLMConfig } from '../llm-types';
 import { DEFAULT_MODELS } from '../llm-types';
 
+interface GroqModelResponse {
+    data?: Array<{
+        id: string;
+        context_window?: number;
+        owned_by: string;
+        active: boolean;
+    }>;
+}
+
 export class GroqProvider extends BaseProvider {
     private client: Groq;
     private apiKey: string;
@@ -37,8 +46,14 @@ export class GroqProvider extends BaseProvider {
 
     async testConnection(): Promise<boolean> {
         try {
-            await this.generateText('Hello', 'You are a helpful assistant.');
-            return true;
+            const response = await fetch('https://api.groq.com/openai/v1/models', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            return response.ok;
         } catch (error) {
             logger.error('Groq connection test failed', { error });
             return false;
@@ -99,9 +114,9 @@ export class GroqProvider extends BaseProvider {
                 throw new Error(`Groq API error: ${response.status}`);
             }
 
-            const data = await response.json();
+            const data = await response.json() as GroqModelResponse;
             
-            return data.data?.map((model: any) => ({
+            return data.data?.map((model) => ({
                 id: model.id,
                 name: GroqProvider.formatModelName(model.id),
                 contextWindow: model.context_window || 8192,
