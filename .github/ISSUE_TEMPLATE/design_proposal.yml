@@ -1,0 +1,79 @@
+name: Design Proposal
+description: Propose an architectural or design change
+title: "[Design] "
+labels: ["type:design"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for architecture proposals, RFCs, or significant design decisions.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-paragraph summary of the proposal
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context & Motivation
+      description: Why is this change needed? What problem does it solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Design
+      description: Detailed description of the proposed approach
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches were evaluated? Why were they rejected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact Assessment
+      description: What parts of the system are affected? Any breaking changes?
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Plan
+      description: Rough breakdown of tasks or phases
+      placeholder: |
+        - Phase 1: ...
+        - Phase 2: ...
+        - Phase 3: ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area does this design relate to?
+      options:
+        - Chat / RAG
+        - Collection Pipeline
+        - LLM Providers
+        - Technology Radar
+        - Export / Digest
+        - Infrastructure / Auth
+        - Security
+        - Documentation
+        - Other
+    validations:
+      required: false
